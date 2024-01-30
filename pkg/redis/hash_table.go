@@ -154,5 +154,5 @@ func (c *Redis) HVals(ctx context.Context, key string, actual any) ([]string, er
 // 如果withValues为true，则同时返回值：[]string{field, value, field, value, ...}，不然只返回[]string{field, field, ...}
 func (c *Redis) HRandField(ctx context.Context, key string, count int, withValues bool) ([]string, error) {
 	key = c.formatKey(key)
-	return c.GetRedisCmd(ctx).HRandField(ctx, key, count, withValues).Result()
+	return c.GetRedisCmd(ctx).HRandField(ctx, key, count).Result()
 }
