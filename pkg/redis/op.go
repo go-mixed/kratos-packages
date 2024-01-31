@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"github.com/redis/go-redis/v9"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"time"
 )

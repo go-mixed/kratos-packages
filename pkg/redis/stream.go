@@ -152,16 +152,6 @@ func (c *Redis) XAutoClaimJustID(ctx context.Context, a *redis.XAutoClaimArgs) (
 	return c.GetRedisCmd(ctx).XAutoClaimJustID(ctx, &_a).Result()
 }
 
-func (c *Redis) XTrim(ctx context.Context, key string, maxLen int64) (int64, error) {
-	key = c.formatKey(key)
-	return c.GetRedisCmd(ctx).XTrim(ctx, key, maxLen).Result()
-}
-
-func (c *Redis) XTrimApprox(ctx context.Context, key string, maxLen int64) (int64, error) {
-	key = c.formatKey(key)
-	return c.GetRedisCmd(ctx).XTrimApprox(ctx, key, maxLen).Result()
-}
-
 func (c *Redis) XTrimMaxLen(ctx context.Context, key string, maxLen int64) (int64, error) {
 	key = c.formatKey(key)
 	return c.GetRedisCmd(ctx).XTrimMaxLen(ctx, key, maxLen).Result()

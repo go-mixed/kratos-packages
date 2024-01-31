@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"github.com/redis/go-redis/v9"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"time"
 )
@@ -58,7 +59,7 @@ func (c *Redis) ClientID(ctx context.Context) (int64, error) {
 // ConfigGet 获取配置
 // https://redis.io/commands/config-get
 // actual的结构是&struct{A int `redis:"a"`, ...}，并且无法内嵌Struct、Map，功能十分有限
-func (c *Redis) ConfigGet(ctx context.Context, parameter string, actual any) ([]any, error) {
+func (c *Redis) ConfigGet(ctx context.Context, parameter string, actual any) (map[string]string, error) {
 	res := c.GetRedisCmd(ctx).ConfigGet(ctx, parameter)
 
 	err := utils.IfFunc(actual != nil, func() error { return res.Scan(actual) }, func() error { return res.Err() })

@@ -28,12 +28,8 @@ func (k *Pipeliner) Process(ctx context.Context, cmd redis.Cmder) error {
 	return k.originalPipeliner.Process(ctx, cmd)
 }
 
-func (k *Pipeliner) Close() error {
-	return k.originalPipeliner.Close()
-}
-
-func (k *Pipeliner) Discard() error {
-	return k.originalPipeliner.Discard()
+func (k *Pipeliner) Discard() {
+	k.originalPipeliner.Discard()
 }
 
 func (k *Pipeliner) Exec(ctx context.Context) ([]redis.Cmder, error) {

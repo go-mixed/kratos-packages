@@ -22,17 +22,6 @@ func NewTx(
 	}
 }
 
-func (t *Tx) Context() context.Context {
-	return t.originalTx.Context()
-}
-
-func (t *Tx) WithContext(ctx context.Context) *Tx {
-	return &Tx{
-		originalTx: t.originalTx.WithContext(ctx),
-		options:    t.options,
-	}
-}
-
 func (t *Tx) Process(ctx context.Context, cmd redis.Cmder) error {
 	return t.originalTx.Process(ctx, cmd)
 }

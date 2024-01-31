@@ -5,18 +5,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// Context returns the context of the client
-func (c *Redis) Context() context.Context {
-	return c.originalClient.Context()
-}
-
-// WithContext returns a shallow copy of c with its context changed
-func (c *Redis) WithContext(ctx context.Context) *Redis {
-	_c := c.Clone()
-	_c.originalClient = c.originalClient.WithContext(ctx)
-	return _c
-}
-
 // AddHook adds a hook to the client.
 func (c *Redis) AddHook(hook redis.Hook) {
 	c.originalClient.AddHook(hook)

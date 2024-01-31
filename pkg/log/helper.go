@@ -3,9 +3,10 @@ package log
 import (
 	"context"
 	"fmt"
+	"github.com/go-kratos/kratos/v2"
 	stdLog "github.com/go-kratos/kratos/v2/log"
+	"github.com/go-kratos/kratos/v2/middleware/tracing"
 	"github.com/pkg/errors"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/trace"
 	gormLogger "gorm.io/gorm/logger"
 	"os"
 	"strconv"
@@ -51,8 +52,9 @@ func appIDLogValuer() stdLog.Valuer {
 func NewModuleHelper(l Logger, moduleName string, kv ...any) *Helper {
 	kv = append(kv,
 		"module", moduleName,
-		"trace", trace.LogValuer(),
-		"app-id", appIDLogValuer(),
+		"trace.id", tracing.TraceID(),
+		"span.id", tracing.SpanID(),
+		"app.id", appIDLogValuer(),
 	)
 
 	l = l.Clone().AddValuer(kv...)

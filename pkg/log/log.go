@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"github.com/go-kratos/kratos/contrib/log/zap/v2"
 	stdLog "github.com/go-kratos/kratos/v2/log"
 	//"github.com/go-kratos/kratos/v2/middleware/tracing"
 	nativeZap "go.uber.org/zap"

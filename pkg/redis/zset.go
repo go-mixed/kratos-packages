@@ -33,12 +33,9 @@ func (c *Redis) BZPopMin(ctx context.Context, timeout time.Duration, keys ...str
 	return c.GetRedisCmd(ctx).BZPopMin(ctx, timeout, _keys...).Result()
 }
 
-func (c *Redis) formatPZ(members []*redis.Z) []*redis.Z {
-	return lo.Map(members, func(v *redis.Z, _ int) *redis.Z {
-		if v == nil {
-			return nil
-		}
-		return &redis.Z{Member: WrapBinaryMarshaler(v.Member), Score: v.Score}
+func (c *Redis) formatPZ(members []redis.Z) []redis.Z {
+	return lo.Map(members, func(v redis.Z, _ int) redis.Z {
+		return redis.Z{Member: WrapBinaryMarshaler(v.Member), Score: v.Score}
 	})
 }
 func (c *Redis) formatZ(members []redis.Z) []redis.Z {
@@ -50,7 +47,7 @@ func (c *Redis) formatZ(members []redis.Z) []redis.Z {
 // ZAdd 将一个或多个 member 元素及其 score 值加入到有序集 key 当中。
 // ZADD key score member [score member ...]
 // https://redis.io/commands/zadd
-func (c *Redis) ZAdd(ctx context.Context, key string, members ...*redis.Z) (int64, error) {
+func (c *Redis) ZAdd(ctx context.Context, key string, members ...redis.Z) (int64, error) {
 	key = c.formatKey(key)
 	_members := c.formatPZ(members)
 	return c.GetRedisCmd(ctx).ZAdd(ctx, key, _members...).Result()
@@ -62,7 +59,7 @@ func (c *Redis) ZAdd(ctx context.Context, key string, members ...*redis.Z) (int6
 // 返回值：
 // 1. int64: 被成功添加的新成员的数量
 // 2. error: 失败时返回的错误
-func (c *Redis) ZAddNX(ctx context.Context, key string, members ...*redis.Z) (int64, error) {
+func (c *Redis) ZAddNX(ctx context.Context, key string, members ...redis.Z) (int64, error) {
 	key = c.formatKey(key)
 	_members := c.formatPZ(members)
 	return c.GetRedisCmd(ctx).ZAddNX(ctx, key, _members...).Result()
@@ -74,46 +71,10 @@ func (c *Redis) ZAddNX(ctx context.Context, key string, members ...*redis.Z) (in
 // 返回值：
 // 1. int64: 为0（因为没有新添加的成员）
 // 2. error: 失败时返回的错误
-func (c *Redis) ZAddXX(ctx context.Context, key string, members ...*redis.Z) (int64, error) {
+func (c *Redis) ZAddXX(ctx context.Context, key string, members ...redis.Z) (int64, error) {
 	key = c.formatKey(key)
 	_members := c.formatPZ(members)
 	return c.GetRedisCmd(ctx).ZAddXX(ctx, key, _members...).Result()
-}
-
-// ZAddCh 将一个或多个 member 元素及其 score 值加入到有序集 key 当中
-// ZADD key CH score member [score member ...]
-// https://redis.io/commands/zadd
-// 返回值：
-// 1. int64: 被成功添加的、更新的成员的数量
-// 2. error: 失败时返回的错误
-func (c *Redis) ZAddCh(ctx context.Context, key string, members ...*redis.Z) (int64, error) {
-	key = c.formatKey(key)
-	_members := c.formatPZ(members)
-	return c.GetRedisCmd(ctx).ZAddCh(ctx, key, _members...).Result()
-}
-
-// ZAddNXCh 将一个或多个 member 元素及其 score 值加入到有序集 key 当中，只有当member不存在时才会添加
-// ZADD key NX CH score member [score member ...]
-// https://redis.io/commands/zadd
-// 返回值：
-// 1. int64: 被成功添加的新成员的数量
-// 2. error: 失败时返回的错误
-func (c *Redis) ZAddNXCh(ctx context.Context, key string, members ...*redis.Z) (int64, error) {
-	key = c.formatKey(key)
-	_members := c.formatPZ(members)
-	return c.GetRedisCmd(ctx).ZAddNXCh(ctx, key, _members...).Result()
-}
-
-// ZAddXXCh 将一个或多个 member 元素及其 score 值加入到有序集 key 当中，只有当member存在时才会添加
-// ZADD key XX CH score member [score member ...]
-// https://redis.io/commands/zadd
-// 返回值：
-// 1. int64: score被修改的数量
-// 2. error: 失败时返回的错误
-func (c *Redis) ZAddXXCh(ctx context.Context, key string, members ...*redis.Z) (int64, error) {
-	key = c.formatKey(key)
-	_members := c.formatPZ(members)
-	return c.GetRedisCmd(ctx).ZAddXXCh(ctx, key, _members...).Result()
 }
 
 // ZAddArgs 传递ZAddArgs参数的方式添加元素
@@ -137,50 +98,6 @@ func (c *Redis) ZAddArgsIncr(ctx context.Context, key string, args redis.ZAddArg
 	key = c.formatKey(key)
 	args.Members = c.formatZ(args.Members)
 	return c.GetRedisCmd(ctx).ZAddArgsIncr(ctx, key, args).Result()
-}
-
-// ZIncr 将member成员的score值加1
-// ZINCRBY key increment member
-// https://redis.io/commands/zincrby
-// 返回值：
-// 1. float64: member成员+1后的score
-// 2. error: 失败时返回的错误，不会返回redis.Nil
-func (c *Redis) ZIncr(ctx context.Context, key string, member *redis.Z) (float64, error) {
-	key = c.formatKey(key) // member是子member，不需要format
-	if member == nil {
-		return c.GetRedisCmd(ctx).ZIncr(ctx, key, nil).Result()
-	}
-	_member := *member
-	_member.Member = WrapBinaryMarshaler(member.Member)
-	return c.GetRedisCmd(ctx).ZIncr(ctx, key, &_member).Result()
-}
-
-// ZIncrNX 将member成员的score值加1，只有当member不存在时才会+1。member.Score不会被使用
-// ZAdd key NX INCR member
-// https://redis.io/commands/zincrby
-// 返回值：
-// 1. float64: member成员+1后的score，为1表示member不存在，为0
-func (c *Redis) ZIncrNX(ctx context.Context, key string, member *redis.Z) (float64, error) {
-	key = c.formatKey(key) // member是子member，不需要format
-	if member == nil {
-		return c.GetRedisCmd(ctx).ZIncrNX(ctx, key, nil).Result()
-	}
-	_member := *member
-	_member.Member = WrapBinaryMarshaler(member.Member)
-	return c.GetRedisCmd(ctx).ZIncrNX(ctx, key, &_member).Result()
-}
-
-// ZIncrXX 将member成员的score值加1，只有当member存在时才会+1。member.Score不会被使用
-// ZAdd key XX INCR member
-// https://redis.io/commands/zincrby
-func (c *Redis) ZIncrXX(ctx context.Context, key string, member *redis.Z) (float64, error) {
-	key = c.formatKey(key) // member是子member，不需要format
-	if member == nil {
-		return c.GetRedisCmd(ctx).ZIncrNX(ctx, key, nil).Result()
-	}
-	_member := *member
-	_member.Member = WrapBinaryMarshaler(member.Member)
-	return c.GetRedisCmd(ctx).ZIncrXX(ctx, key, &_member).Result()
 }
 
 // ZCard 返回有序集 key 的基数。Card->Cardinality
@@ -494,9 +411,9 @@ func (c *Redis) ZUnionWithScores(ctx context.Context, store redis.ZStore) ([]red
 // 返回值：
 // 1. []string: 随机获取的元素列表。如果withScores为true，则返回的[]string{member1, score1, member2, score2, ...}，否则返回[]string{member1, member2, ...}
 // 2. error: 失败时返回的错误，不会返回redis.Nil
-func (c *Redis) ZRandMember(ctx context.Context, key string, count int, withScores bool) ([]string, error) {
+func (c *Redis) ZRandMember(ctx context.Context, key string, count int) ([]string, error) {
 	key = c.formatKey(key)
-	return c.GetRedisCmd(ctx).ZRandMember(ctx, key, count, withScores).Result()
+	return c.GetRedisCmd(ctx).ZRandMember(ctx, key, count).Result()
 }
 
 // ZDiff 返回有序集 key1 中，存在于 key1 且不存在于 key2、key3... 的member列表
