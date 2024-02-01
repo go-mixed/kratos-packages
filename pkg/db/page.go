@@ -7,10 +7,17 @@ type Pagination struct {
 	Offset int   `json:"offset,omitempty"` // 自定义偏移值
 }
 
-func NewPagination() *Pagination {
+func DefaultPagination() *Pagination {
 	return &Pagination{
 		Page:  1,
 		Limit: 10,
+	}
+}
+
+func NewPagination(page, limit int) *Pagination {
+	return &Pagination{
+		Page:  page,
+		Limit: limit,
 	}
 }
 

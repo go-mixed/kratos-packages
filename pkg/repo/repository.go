@@ -43,6 +43,13 @@ func NewRepository[T db.Tabler](
 	return repo
 }
 
+type transactionKey struct{}
+
+// newTxContext 构造事务context
+func newTxContext(ctx context.Context, value *db.DB) context.Context {
+	return context.WithValue(ctx, &transactionKey{}, value)
+}
+
 // GetDB 获取db，如果是事务，并将ctx附加到gorm中
 func (repo *Repository[T]) GetDB(ctx context.Context) *db.DB {
 	if ctx != nil {

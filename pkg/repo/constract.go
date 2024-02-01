@@ -96,6 +96,11 @@ type IOrmGetter[T db.Tabler] interface {
 	Paginate(ctx context.Context, query *cnd.QueryBuilder, pagination *db.Pagination) ([]T, error)
 }
 
+type IRemember[T db.Tabler] interface {
+	IOrmGetter[T]
+	Do(ctx context.Context, callback func(context.Context, *Repository[T]) (any, error)) (any, error)
+}
+
 type IModelEvent[T db.Tabler] interface {
 	// RegisterEventListener 注册单个Model的事件
 	RegisterEventListener(eventType event.EventType, callback event.EventListenerFunc[T])
@@ -112,7 +117,7 @@ type IRepositoryCache[T db.Tabler] interface {
 	// 注意：默认情况下，没有查询到记录（包括Count()==0），不会设置缓存。
 	// 当options传入WithSaveEmptyOnRemember()，可以强制保存空值
 	// 如果要修改缓存的过期时间，可以传递WithExpiration()，如果要修改缓存的key前缀，可以WithKeyPrefix()
-	Remember(key string, options ...cache.Option) IOrmGetter[T]
+	Remember(key string, options ...cache.Option) IRemember[T]
 	// GetCache 获取某key的cache，并转化为T对象
 	GetCache(ctx context.Context, key string) (bool, T, error)
 	// GetCacheForList 获取某key的cache，并转化为[]T对象列表

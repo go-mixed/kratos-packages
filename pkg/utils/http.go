@@ -9,7 +9,7 @@ import (
 	"net/http"
 )
 
-func GetHttpRequest(ctx context.Context) *http.Request {
+func GetKratosHttpRequest(ctx context.Context) *http.Request {
 	if t, ok := transport.FromServerContext(ctx); ok {
 		if t.Kind() == transport.KindHTTP {
 			if info, ok := t.(*trHttp.Transport); ok {
@@ -20,15 +20,15 @@ func GetHttpRequest(ctx context.Context) *http.Request {
 	return nil
 }
 
-func GetHttpHeader(ctx context.Context) transport.Header {
+func GetKratosHttpHeader(ctx context.Context) transport.Header {
 	if t, ok := transport.FromServerContext(ctx); ok {
 		return t.RequestHeader()
 	}
 	return nil
 }
 
-func GetHttpBody(ctx context.Context) []byte {
-	httpRequest := GetHttpRequest(ctx)
+func GetKratosHttpBody(ctx context.Context) []byte {
+	httpRequest := GetKratosHttpRequest(ctx)
 	if httpRequest != nil {
 		body, _ := io.ReadAll(httpRequest.Body)
 		return body

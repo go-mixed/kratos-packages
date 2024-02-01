@@ -13,7 +13,7 @@ type rememberCacheGetter[T db.Tabler] struct {
 	cacheKey   string
 }
 
-func (repo *Repository[T]) Remember(key string, options ...cache.Option) IOrmGetter[T] {
+func (repo *Repository[T]) Remember(key string, options ...cache.Option) IRemember[T] {
 	c := &rememberCacheGetter[T]{
 		repository: repo,
 		cacheKey:   key,
@@ -39,6 +39,13 @@ func (repo *Repository[T]) GetCacheForList(ctx context.Context, key string) ([]T
 }
 
 // ------------ rememberCacheGetter ------------
+
+// Do 自定义返回内容
+func (c *rememberCacheGetter[T]) Do(ctx context.Context, callback func(context.Context, *Repository[T]) (any, error)) (any, error) {
+	return cache.AsModernCache[any](c.cache).Remember(ctx, c.cacheKey, func(ctx context.Context) (any, error) {
+		return callback(ctx, c.repository)
+	})
+}
 
 // Count 统计数量。
 // 会先尝试获取缓存，如果没有获取到，则数据库查询，并设置缓存。
