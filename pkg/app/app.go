@@ -9,7 +9,7 @@ import (
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/trace"
 )
 
-// Version 修改版本执行： go build -ldflags "-X app.Version=x.y.z"
+// Version 修改版本执行： go build -ldflags "-X gopkg.in/go-mixed/kratos-packages.v2/pkg/app.Version=x.y.z"
 var Version string = ""
 
 var created bool
