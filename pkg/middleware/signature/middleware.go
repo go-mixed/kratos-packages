@@ -10,7 +10,10 @@ import (
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/sign"
 )
 
-type signatureMiddlewareFunc func(ctx context.Context, transporter transport.Transporter, request sign.IProtobufSignature) (auth.IThirdParty, error)
+type signatureMiddlewareFunc func(
+	ctx context.Context,
+	transporter transport.Transporter,
+	request sign.IProtobufSignature) (thirdPartyApp auth.IThirdParty, options sign.Options, err error)
 
 func NewSignatureMiddleware(signatureFunc signatureMiddlewareFunc, logger log.Logger) middleware.Middleware {
 	return func(nextHandler middleware.Handler) middleware.Handler {
@@ -22,7 +25,7 @@ func NewSignatureMiddleware(signatureFunc signatureMiddlewareFunc, logger log.Lo
 				return nil, auth.ErrWrongContext
 			}
 			if request, ok := req.(sign.IProtobufSignature); ok {
-				thirdPartyApp, err := signatureFunc(ctx, transporter, request)
+				thirdPartyApp, options, err := signatureFunc(ctx, transporter, request)
 				if err != nil {
 					return nil, err
 				}
@@ -33,7 +36,7 @@ func NewSignatureMiddleware(signatureFunc signatureMiddlewareFunc, logger log.Lo
 				if ok, err = sign.CheckProtobufSignature(
 					request,
 					thirdPartyApp.GetAppSecret(),
-					sign.DefaultOptions().WithLogger(l).WithValidateTimestamp(validateTimestamp(thirdPartyApp)),
+					options.WithLogger(l),
 				); ok {
 					return nextHandler(ctx, req)
 				} else if err != nil {
@@ -43,12 +46,4 @@ func NewSignatureMiddleware(signatureFunc signatureMiddlewareFunc, logger log.Lo
 			return nil, errors.BadRequest("signature", "请传递正确的签名参数")
 		}
 	}
-}
-
-func validateTimestamp(thirdPartyApp auth.IThirdParty) bool {
-	switch thirdPartyApp.GetAppKey() {
-
-	}
-
-	return true
 }
