@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/auth"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/trace"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/requestid"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"net"
 	"net/http"
@@ -91,7 +91,7 @@ func (s *Session) initial(
 		Set("token", token).
 		Set("user", user).
 		Set("service", s.Service).
-		Set("requestID", trace.FromContext(r.Context()))
+		Set("requestID", requestid.FromContext(r.Context()))
 
 	if version != "" {
 		s.Set("version", version)

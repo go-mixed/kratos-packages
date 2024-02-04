@@ -3,7 +3,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/trace"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/requestid"
 )
 
 type transportContext struct {
@@ -16,7 +16,7 @@ func SerializeContext(ctx context.Context) string {
 		return ""
 	}
 	wsContext := transportContext{
-		RequestID: trace.FromContext(ctx),
+		RequestID: requestid.FromContext(ctx),
 	}
 
 	j, _ := json.Marshal(wsContext)
@@ -29,6 +29,6 @@ func DeserializeContext(parentCtx context.Context, ctxStr string) context.Contex
 	_ = json.Unmarshal([]byte(ctxStr), &wsContext)
 
 	// 包裹父级parentCtx，保证日志的链路跟踪
-	ctx := trace.NewContext(parentCtx, wsContext.RequestID)
+	ctx := requestid.NewContext(parentCtx, wsContext.RequestID)
 	return ctx
 }

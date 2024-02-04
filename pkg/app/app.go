@@ -5,8 +5,8 @@ import (
 	"github.com/go-kratos/kratos/v2"
 	"github.com/google/uuid"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/auth"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/requestid"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/sign"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/trace"
 )
 
 // Version 修改版本执行： go build -ldflags "-X gopkg.in/go-mixed/kratos-packages.v2/pkg/app.Version=x.y.z"
@@ -87,7 +87,7 @@ func (a *App) CloneContextFromBase(fromCtx context.Context) context.Context {
 	//	ctx = kratos.NewContext(ctx, k)
 	//}
 	// 尝试从fromCtx中获取trace
-	ctx = trace.NewContext(ctx, trace.FromContext(fromCtx))
+	ctx = requestid.NewContext(ctx, requestid.FromContext(fromCtx))
 	// 尝试从fromCtx中获取auth
 	if _auth, ok := auth.FromContext(fromCtx); ok {
 		ctx = auth.NewContext(ctx, _auth)

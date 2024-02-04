@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"github.com/go-kratos/kratos/v2/transport"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/auth"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/trace"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/requestid"
 	"net"
 	"net/http"
 	"net/url"
@@ -177,7 +177,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 将appID/RequestID放入request.Context中
 
 	ctx := r.Context()
-	ctx = trace.NewContext(ctx, trace.GetOrGenerateRequestId(r))
+	ctx = requestid.NewContext(ctx, requestid.GetOrGenerateRequestId(r))
 	r = r.WithContext(ctx)
 
 	logger := s.logger.WithContext(ctx)

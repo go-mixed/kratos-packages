@@ -1,4 +1,4 @@
-package trace
+package requestid
 
 import (
 	"context"
@@ -13,9 +13,9 @@ func fillReqIdAppId(ctx context.Context, reply any, reqId string) {
 		if response, ok := reply.(utils.IProtobuf); ok {
 			messageDesc := response.ProtoReflect().Descriptor()
 			// fill traceId
-			traceField := messageDesc.Fields().ByName("trace")
-			if traceField != nil && traceField.Kind() == protoreflect.StringKind && response.ProtoReflect().Get(traceField).String() == "" {
-				response.ProtoReflect().Set(traceField, protoreflect.ValueOfString(reqId))
+			requestIdField := messageDesc.Fields().ByName("request_id")
+			if requestIdField != nil && requestIdField.Kind() == protoreflect.StringKind && response.ProtoReflect().Get(requestIdField).String() == "" {
+				response.ProtoReflect().Set(requestIdField, protoreflect.ValueOfString(reqId))
 			}
 
 			// fill appId

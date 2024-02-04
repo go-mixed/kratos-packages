@@ -7,6 +7,7 @@ import (
 	stdLog "github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/tracing"
 	"github.com/pkg/errors"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/requestid"
 	gormLogger "gorm.io/gorm/logger"
 	"os"
 	"strconv"
@@ -40,7 +41,7 @@ type stackTracer interface {
 
 // LogValuer 提供日志valuer
 func appIDLogValuer() stdLog.Valuer {
-	return func(ctx context.Context) interface{} {
+	return func(ctx context.Context) any {
 		if app, ok := kratos.FromContext(ctx); ok {
 			return app.ID()
 		}
@@ -53,6 +54,7 @@ func NewModuleHelper(l Logger, moduleName string, kv ...any) *Helper {
 	kv = append(kv,
 		"module", moduleName,
 		"trace.id", tracing.TraceID(),
+		"request.id", requestid.LogValuer(),
 		"span.id", tracing.SpanID(),
 		"app.id", appIDLogValuer(),
 	)
