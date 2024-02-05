@@ -74,6 +74,8 @@ func (l *ZLog) init() {
 		zapcore.AddSync(os.Stdout),
 	}
 
+	_ = os.MkdirAll(l.rotateOpts.dir, os.ModePerm)
+
 	if l.rotation {
 		syncers = append(syncers, l.getRotationSyncWriter(l.rotateOpts.dir))
 	}
