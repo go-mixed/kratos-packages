@@ -8,6 +8,8 @@ import (
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/event"
 )
 
+type Columns = map[string]any
+
 type IOrm[T db.Tabler] interface {
 	// Transaction 开启事务
 	// example:
@@ -47,7 +49,7 @@ type IOrmSetter[T db.Tabler] interface {
 	// T必须为指针类型
 	Update(ctx context.Context, models ...T) error
 	// UpdateColumns 更新资源多个字段
-	UpdateColumns(ctx context.Context, query *cnd.QueryBuilder, attributes map[string]any) error
+	UpdateColumns(ctx context.Context, query *cnd.QueryBuilder, attributes Columns) error
 	// UpdateColumn 更新资源单个字段
 	UpdateColumn(ctx context.Context, query *cnd.QueryBuilder, key string, value any) error
 	// Delete 使用model删除资源。如果没有主键，为了避免批量删除，会返回ErrMissingWhereClause

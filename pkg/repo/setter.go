@@ -64,7 +64,7 @@ func (repo *Repository[T]) DeletePrimary(ctx context.Context, primary ...any) er
 }
 
 // UpdateColumns 更新资源多个字段
-func (repo *Repository[T]) UpdateColumns(ctx context.Context, query *cnd.QueryBuilder, attributes map[string]any) error {
+func (repo *Repository[T]) UpdateColumns(ctx context.Context, query *cnd.QueryBuilder, attributes Columns) error {
 	orm := repo.GetDB(ctx).Model(repo.modelCreator())
 
 	if err := query.Build(orm).Updates(attributes).Error; err != nil {

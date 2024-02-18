@@ -10,7 +10,7 @@ import (
 	"github.com/go-kratos/kratos/v2/transport"
 )
 
-type authMiddlewareFunc func(ctx context.Context, transporter transport.Transporter, token string) (auth.IAuth, error)
+type authMiddlewareFunc func(ctx context.Context, transporter transport.Transporter, requestToken string) (auth.IAuth, error)
 
 func NewAuthMiddleware(authFunc authMiddlewareFunc, logger log.Logger) middleware.Middleware {
 	logHelper := log.NewModuleHelper(logger, "middleware/http")
@@ -24,14 +24,14 @@ func NewAuthMiddleware(authFunc authMiddlewareFunc, logger log.Logger) middlewar
 			}
 			auths := strings.SplitN(transporter.RequestHeader().Get(auth.AuthorizationKey), " ", 2)
 			if len(auths) != 2 || !strings.EqualFold(auths[0], auth.BearerWord) {
-				l.Errorf("token is missing of \"%s\"", transporter.Operation())
+				l.Errorf("requestToken is missing of \"%s\"", transporter.Operation())
 				return nil, auth.ErrMissingToken
 			}
-			token := auths[1]
+			requestToken := auths[1]
 
-			authImpl, err := authFunc(ctx, transporter, token)
+			authImpl, err := authFunc(ctx, transporter, requestToken)
 			if err != nil {
-				l.Errorf("token authFunc of \"%s\" err: %v", transporter.Operation(), err)
+				l.Errorf("requestToken authFunc of \"%s\" err: %v", transporter.Operation(), err)
 				return nil, err
 			}
 

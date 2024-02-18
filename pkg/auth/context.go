@@ -20,9 +20,9 @@ func FromContext(ctx context.Context) (IAuth, bool) {
 func GetAndValidate(ctx context.Context, guardName string) (IAuth, error) {
 	session, ok := FromContext(ctx)
 	if !ok {
-		return nil, errors.Unauthorized("", "请先登录相关账号")
-	} else if session.GetGuardName() != guardName {
-		return nil, errors.Forbidden(guardName, "当前登录的账号没有权限操作这个资源")
+		return nil, errors.Unauthorized("", "Please get the access token first")
+	} else if session.GetGuardModel().GetGuardName() != guardName {
+		return nil, errors.Forbidden(guardName, "The guard name of access token is not matched")
 	}
 
 	return session, nil

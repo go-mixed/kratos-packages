@@ -11,52 +11,29 @@ func init() {
 }
 
 type IAuth interface {
-	GetShopID() int64
-	GetMerchantID() int64 // string是为了兼容历史
 	GetRequestToken() string
-	GetTokenModel() IAccessToken
-	IGuard
-	GetGuardModel() IGuardModel
+	GetGuardModel() IGuard
+	GetAccessTokenModel() IAccessToken
 }
 
 type Auth struct {
-	ShopID          int64        `json:"shop_id"`
-	MerchantID      int64        `json:"merchant_id"`
-	RequestToken    string       `json:"token"`
-	TokenModel      IAccessToken `json:"-" yaml:"-"` // not export to json and yaml
-	GuardName       string       `json:"guard_name"`
-	AuthorizationID int64        `json:"authorization_id"`
-	GuardModel      IGuardModel  `json:"-" yaml:"-"` // not export to json and yaml
+	RequestToken     string `json:"token"`
+	AccessTokenModel IAccessToken
+	GuardModel       IGuard
 }
 
 var _ IAuth = (*Auth)(nil)
-
-func (a *Auth) GetMerchantID() int64 {
-	return a.MerchantID
-}
-
-func (a *Auth) GetShopID() int64 {
-	return a.ShopID
-}
 
 func (a *Auth) GetRequestToken() string {
 	return a.RequestToken
 }
 
-func (a *Auth) GetTokenModel() IAccessToken {
-	return a.TokenModel
-}
-
-func (a *Auth) GetGuardName() string {
-	return a.GuardName
-}
-
-func (a *Auth) GetAuthorizationID() int64 {
-	return a.AuthorizationID
-}
-
-func (a *Auth) GetGuardModel() IGuardModel {
+func (a *Auth) GetGuardModel() IGuard {
 	return a.GuardModel
+}
+
+func (a *Auth) GetAccessTokenModel() IAccessToken {
+	return a.AccessTokenModel
 }
 
 func (a *Auth) MarshalBinary() ([]byte, error) {
