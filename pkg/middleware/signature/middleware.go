@@ -43,7 +43,7 @@ func NewSignatureMiddleware(signatureFunc signatureMiddlewareFunc, logger log.Lo
 					return nil, err
 				}
 			}
-			return nil, errors.BadRequest("signature", "请传递正确的签名参数")
+			return nil, errors.BadRequest("signature", "Please input sign(string)、timestamp(int)、app_key(string)")
 		}
 	}
 }
