@@ -49,21 +49,21 @@ func (l *logger) LogMode(level gormLogger.LogLevel) Interface {
 }
 
 // Info print info
-func (l *logger) Info(ctx context.Context, msg string, data ...interface{}) {
+func (l *logger) Info(ctx context.Context, msg string, data ...any) {
 	if l.LogLevel >= gormLogger.Info {
 		l.kratosLogger.WithContext(ctx).Infof(msg, data...)
 	}
 }
 
 // Warn print warn messages
-func (l *logger) Warn(ctx context.Context, msg string, data ...interface{}) {
+func (l *logger) Warn(ctx context.Context, msg string, data ...any) {
 	if l.LogLevel >= gormLogger.Warn {
 		l.kratosLogger.WithContext(ctx).Warnf(msg, data...)
 	}
 }
 
 // Error print error messages
-func (l *logger) Error(ctx context.Context, msg string, data ...interface{}) {
+func (l *logger) Error(ctx context.Context, msg string, data ...any) {
 	if l.LogLevel >= gormLogger.Error {
 		l.kratosLogger.WithContext(ctx).Errorf(msg, data...)
 	}
@@ -103,7 +103,7 @@ func (l *logger) Trace(ctx context.Context, begin time.Time, fc func() (string, 
 }
 
 // Trace print sql message
-func (l *logger) ParamsFilter(ctx context.Context, sql string, params ...interface{}) (string, []interface{}) {
+func (l *logger) ParamsFilter(ctx context.Context, sql string, params ...any) (string, []any) {
 	if l.Config.ParameterizedQueries {
 		return sql, nil
 	}

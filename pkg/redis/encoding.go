@@ -169,7 +169,7 @@ func makeSliceNextElemFunc(v reflect.Value) func() reflect.Value {
 }
 
 // toString 将v转换成[]byte，来源于redis/v8/internal/proto/writer.go
-func toString(v interface{}) ([]byte, error) {
+func toString(v any) ([]byte, error) {
 	switch v := v.(type) {
 	case nil:
 		return nil, nil

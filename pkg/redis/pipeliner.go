@@ -20,7 +20,7 @@ func (k *Pipeliner) Len() int {
 	return k.originalPipeliner.Len()
 }
 
-func (k *Pipeliner) Do(ctx context.Context, args ...interface{}) *redis.Cmd {
+func (k *Pipeliner) Do(ctx context.Context, args ...any) *redis.Cmd {
 	return k.originalPipeliner.Do(ctx, args...)
 }
 

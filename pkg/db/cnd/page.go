@@ -28,8 +28,8 @@ func (p *Paging) TotalPage() int {
 }
 
 type ParamPair struct {
-	Query interface{}   // 查询
-	Args  []interface{} // 参数
+	Query any   // 查询
+	Args  []any // 参数
 }
 
 type OrderByCol struct {
@@ -39,12 +39,12 @@ type OrderByCol struct {
 
 type PageResult struct {
 	*Paging
-	Results interface{} `json:"results"`
+	Results any `json:"results"`
 }
 
 type CursorResult struct {
-	Results interface{} `json:"results"`
-	Cursor  string      `json:"cursor"`
+	Results any    `json:"results"`
+	Cursor  string `json:"cursor"`
 }
 
 func SqlNullString(value string) sql.NullString {

@@ -18,7 +18,7 @@ const (
 var (
 	ErrMissingToken        = errors.Unauthorized(UnauthorizedReason, "token is missing")
 	ErrWrongContext        = errors.Unauthorized(UnauthorizedReason, "Wrong context for middleware")
-	ErrTokenExpired        = errors.Unauthorized(UnauthorizedReason, "token is expired")
+	ErrTokenExpired        = errors.New(406, UnauthorizedReason, "token is expired")
 	ErrTokenInvalid        = errors.Unauthorized(UnauthorizedReason, "token is invalid or disabled")
 	ErrGuardNotFound       = errors.Unauthorized(UnauthorizedReason, "guard not found")
 	ErrRefreshTokenInvalid = errors.Unauthorized(UnauthorizedReason, "refresh token is invalid or not found")

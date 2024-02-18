@@ -15,7 +15,7 @@ type authMiddlewareFunc func(ctx context.Context, transporter transport.Transpor
 func NewAuthMiddleware(authFunc authMiddlewareFunc, logger log.Logger) middleware.Middleware {
 	logHelper := log.NewModuleHelper(logger, "middleware/http")
 	return func(nextHandler middleware.Handler) middleware.Handler {
-		return func(ctx context.Context, req interface{}) (interface{}, error) {
+		return func(ctx context.Context, req any) (any, error) {
 			l := logHelper.WithContext(ctx)
 			transporter, ok := transport.FromServerContext(ctx)
 			if !ok {

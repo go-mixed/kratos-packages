@@ -18,7 +18,7 @@ type requestId struct{}
 
 // LogValuer 提供日志valuer
 func LogValuer() stdLog.Valuer {
-	return func(ctx context.Context) interface{} {
+	return func(ctx context.Context) any {
 		return FromContext(ctx)
 	}
 }

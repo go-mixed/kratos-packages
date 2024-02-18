@@ -24,7 +24,7 @@ var (
 // Configure 标准配置扩展
 type Configure interface {
 	Load() error
-	Scan(v interface{}) error
+	Scan(v any) error
 	Value(key string) config.Value
 	Bool(key string, defValue ...bool) bool
 	Int64(key string, defValue ...int64) int64
@@ -97,7 +97,7 @@ func (c *configure) autoLoad() error {
 }
 
 // Scan 配置映射
-func (c *configure) Scan(v interface{}) error {
+func (c *configure) Scan(v any) error {
 	if err := c.autoLoad(); err != nil {
 		return err
 	}

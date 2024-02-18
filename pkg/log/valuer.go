@@ -18,7 +18,7 @@ func SimpleCaller(depth int) Valuer {
 
 // FullCaller 完成输出caller
 func FullCaller(depth int) Valuer {
-	return func(ctx context.Context) interface{} {
+	return func(ctx context.Context) any {
 		_, file, line, _ := runtime.Caller(depth)
 		return file + ":" + strconv.Itoa(line)
 	}

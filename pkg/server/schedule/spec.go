@@ -10,7 +10,7 @@ import (
 )
 
 type Spec interface {
-	Cron(expression interface{}) (cron.EntryID, error)
+	Cron(expression any) (cron.EntryID, error)
 	Every(duration time.Duration) (cron.EntryID, error)
 	EverySeconds(seconds ...int) (cron.EntryID, error)
 	EveryMinute() (cron.EntryID, error)
@@ -83,7 +83,7 @@ func NewSpec(runner cronCaller, job job.Job) *spec {
 
 // Cron 自定义cron表达式运行job
 // 支持表达式：https://pkg.go.dev/github.com/robfig/cron/v3#hdr-Special_Characters
-func (s spec) Cron(spec interface{}) (cron.EntryID, error) {
+func (s spec) Cron(spec any) (cron.EntryID, error) {
 	return s.runner(spec, s.job)
 }
 

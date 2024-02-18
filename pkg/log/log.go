@@ -26,7 +26,7 @@ type Logger interface {
 	// AddFilter 添加过滤器。修改的是当前的logger，在log.NewModuleHelper中设置时，请Clone后使用。
 	AddFilter(option stdLog.FilterOption) Logger
 	// AddValuer 添加Key-Valuer。修改的是当前的logger，在log.NewModuleHelper中设置时，请Clone后使用。
-	AddValuer(keyVals ...interface{}) Logger
+	AddValuer(keyVals ...any) Logger
 	// AddStack 增加stack。修改的是当前的logger，在log.NewModuleHelper中设置时，请Clone后使用。
 	AddStack(skip int) Logger
 	ZapCore() zapcore.Core
@@ -43,7 +43,7 @@ type zapLogger struct {
 	nativeZapCore zapcore.Core
 
 	filters []stdLog.FilterOption
-	valuers []interface{}
+	valuers []any
 
 	stack        int
 	kratosLogger stdLog.Logger
@@ -54,7 +54,7 @@ var DefaultLogger Logger = (*zapLogger)(nil)
 
 // Default 实例化默认日志
 func Default(baseCtx context.Context, opts ...ZapCoreOption) Logger {
-	kvs := []interface{}{"ts", DefaultTimestamp /*, "call", SimpleCaller(7)*/}
+	kvs := []any{"ts", DefaultTimestamp /*, "call", SimpleCaller(7)*/}
 	DefaultLogger = New(baseCtx, opts...).AddValuer(kvs...)
 	return DefaultLogger
 }
@@ -93,7 +93,7 @@ func (l *zapLogger) SetLevel(level string) Logger {
 // AddValuer 添加Key-Valuer。修改的是当前的logger，在log.NewModuleHelper中设置时，请Clone后使用。
 //
 //	keyvals... 为偶数个, key为字符串, val为Valuer
-func (l *zapLogger) AddValuer(keyVals ...interface{}) Logger {
+func (l *zapLogger) AddValuer(keyVals ...any) Logger {
 	l.valuers = append(l.valuers, keyVals...)
 	return l
 }
@@ -123,7 +123,7 @@ func (l *zapLogger) Build() stdLog.Logger {
 	return kratosLogger
 }
 
-func (l *zapLogger) Log(level Level, keyVals ...interface{}) error {
+func (l *zapLogger) Log(level Level, keyVals ...any) error {
 	// 如果是从这个方法进来的，走的是官方的日志接口。
 	// 需要创建新的kratosLogger，并且stack需要加1
 	if l.kratosLogger == nil {
