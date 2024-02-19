@@ -49,7 +49,7 @@ func (l *ZLog) init() {
 		LevelKey:   "level",
 		NameKey:    "log",
 		CallerKey:  "caller",
-		MessageKey: "", // 因为是 Helper 唤起日志，并且helper中包含的msg字段，所以这里设置为空
+		MessageKey: "msg", // 因为是 Helper 唤起日志，并且helper中包含的msg字段，所以这里设置为空
 		LineEnding: zapcore.DefaultLineEnding,
 		EncodeTime: func(t time.Time, encoder zapcore.PrimitiveArrayEncoder) {
 			encoder.AppendString(t.Format("2006-01-02 15:04:05"))

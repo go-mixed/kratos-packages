@@ -38,7 +38,7 @@ func ProtobufToMap(protobuf IProtobuf, keepNil bool) map[string]any {
 		// Protobuf中没有Channel、Func、Interface、UnsafePointer类型
 		// 为指针类型的一般是optional修饰的字段
 		if vfOf.Kind() == reflect.Ptr {
-			if vfOf.IsNil() && !!keepNil { // 不保留空指针
+			if vfOf.IsNil() && !keepNil { // 不保留空指针
 				continue
 			}
 			vfOf = vfOf.Elem()
