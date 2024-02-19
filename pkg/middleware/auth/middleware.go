@@ -12,6 +12,7 @@ import (
 
 type authMiddlewareFunc func(ctx context.Context, transporter transport.Transporter, requestToken string) (auth.IAuth, error)
 
+// NewAuthMiddleware 用于Kratos http server的auth中间件
 func NewAuthMiddleware(authFunc authMiddlewareFunc, logger log.Logger) middleware.Middleware {
 	logHelper := log.NewModuleHelper(logger, "middleware/http")
 	return func(nextHandler middleware.Handler) middleware.Handler {
@@ -22,12 +23,20 @@ func NewAuthMiddleware(authFunc authMiddlewareFunc, logger log.Logger) middlewar
 				l.Error("wrong transport context for auth middleware")
 				return nil, auth.ErrWrongContext
 			}
-			auths := strings.SplitN(transporter.RequestHeader().Get(auth.AuthorizationKey), " ", 2)
-			if len(auths) != 2 || !strings.EqualFold(auths[0], auth.BearerWord) {
+
+			authHeaderValue := strings.TrimSpace(transporter.RequestHeader().Get(auth.AuthorizationHeader))
+			if authHeaderValue == "" {
 				l.Errorf("requestToken is missing of \"%s\"", transporter.Operation())
 				return nil, auth.ErrMissingToken
 			}
-			requestToken := auths[1]
+
+			// 从请求头中获取token，有Bearer开头的话去掉
+			var requestToken string
+			if !strings.HasPrefix(authHeaderValue, auth.BearerWord) {
+				requestToken = authHeaderValue
+			} else {
+				requestToken = strings.TrimSpace(authHeaderValue[len(auth.BearerWord):])
+			}
 
 			authImpl, err := authFunc(ctx, transporter, requestToken)
 			if err != nil {
