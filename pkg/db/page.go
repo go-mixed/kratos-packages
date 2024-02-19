@@ -15,6 +15,12 @@ func DefaultPagination() *Pagination {
 }
 
 func NewPagination(page, limit int) *Pagination {
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	}
 	return &Pagination{
 		Page:  page,
 		Limit: limit,

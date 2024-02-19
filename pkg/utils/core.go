@@ -95,6 +95,17 @@ func IsPtr[T any](v T) bool {
 	return reflect.TypeOf(v).Kind() == reflect.Ptr
 }
 
+// PtrValue 获取指针的值
+func PtrValue(v any) any {
+	if v == nil {
+		return nil
+	} else if vOf := reflect.ValueOf(v); vOf.Kind() != reflect.Ptr || vOf.IsNil() {
+		return v
+	}
+
+	return reflect.ValueOf(v).Elem().Interface()
+}
+
 // New 创建对象
 //   - 如果非指针类型，返回该类型的零值（利用泛型的特性）；
 //   - 如果是指针类型，返回new(T)；

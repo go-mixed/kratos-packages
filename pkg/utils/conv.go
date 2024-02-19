@@ -65,6 +65,147 @@ func ToString(v any, otherTypeAsJson bool) string {
 	}
 }
 
+// ToInt64 将任意类型转为int64
+func ToInt64(val any) int64 {
+	switch v := val.(type) {
+	case int:
+		return int64(v)
+	case int8:
+		return int64(v)
+	case int16:
+		return int64(v)
+	case int32:
+		return int64(v)
+	case int64:
+		return v
+	case uint:
+		return int64(v)
+	case uint8:
+		return int64(v)
+	case uint16:
+		return int64(v)
+	case uint32:
+		return int64(v)
+	case uint64:
+		return int64(v)
+	case float32:
+		return int64(v)
+	case float64:
+		return int64(v)
+	case string:
+		i, _ := strconv.ParseInt(v, 10, 64)
+		return i
+	default:
+		switch reflect.TypeOf(v).Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			return reflect.ValueOf(v).Int()
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			return int64(reflect.ValueOf(v).Uint())
+		case reflect.Float32, reflect.Float64:
+			return int64(reflect.ValueOf(v).Float())
+		case reflect.String:
+			i, _ := strconv.ParseInt(reflect.ValueOf(v).String(), 10, 64)
+			return i
+		default:
+			return 0
+		}
+	}
+}
+
+// ToUint64 将任意类型转为uint64
+func ToUint64(val any) uint64 {
+	switch v := val.(type) {
+	case int:
+		return uint64(v)
+	case int8:
+		return uint64(v)
+	case int16:
+		return uint64(v)
+	case int32:
+		return uint64(v)
+	case int64:
+		return uint64(v)
+	case uint:
+		return uint64(v)
+	case uint8:
+		return uint64(v)
+	case uint16:
+		return uint64(v)
+	case uint32:
+		return uint64(v)
+	case uint64:
+		return v
+	case float32:
+		return uint64(v)
+	case float64:
+		return uint64(v)
+	case string:
+		i, _ := strconv.ParseUint(v, 10, 64)
+		return i
+	default:
+		switch reflect.TypeOf(v).Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			return uint64(reflect.ValueOf(v).Int())
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			return reflect.ValueOf(v).Uint()
+		case reflect.Float32, reflect.Float64:
+			return uint64(reflect.ValueOf(v).Float())
+		case reflect.String:
+			i, _ := strconv.ParseUint(reflect.ValueOf(v).String(), 10, 64)
+			return i
+		default:
+			return 0
+		}
+	}
+}
+
+// ToFloat64 将任意类型转为float64
+func ToFloat64(val any) float64 {
+	switch v := val.(type) {
+	case float32:
+		return float64(v)
+	case float64:
+		return v
+	case int:
+		return float64(v)
+	case int8:
+		return float64(v)
+	case int16:
+		return float64(v)
+	case int32:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case uint:
+		return float64(v)
+	case uint8:
+		return float64(v)
+	case uint16:
+		return float64(v)
+	case uint32:
+		return float64(v)
+	case uint64:
+		return float64(v)
+	case string:
+		i, _ := strconv.ParseFloat(v, 64)
+		return i
+	default:
+		switch reflect.TypeOf(v).Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			return float64(reflect.ValueOf(v).Int())
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			return float64(reflect.ValueOf(v).Uint())
+		case reflect.Float32, reflect.Float64:
+			return reflect.ValueOf(v).Float()
+		case reflect.String:
+			i, _ := strconv.ParseFloat(reflect.ValueOf(v).String(), 64)
+			return i
+		default:
+			return 0
+		}
+	}
+}
+
 // AnyToUrlValues 将map/struct/slice/string转化为url.Values。
 //
 //	如果是string，则会尝试使用url.ParseQuery进行转换
