@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"errors"
 	kratosHttp "github.com/go-kratos/kratos/v2/transport/http"
 	"io"
 	"strconv"
@@ -88,5 +89,8 @@ func (s *Stream) WriteStringAndClose(data string) error {
 }
 
 func (s *Stream) Wait() error {
-	return s.ctx.Stream(200, s.contentType, s.pipeReader)
+	if err := s.ctx.Stream(200, s.contentType, s.pipeReader); err != nil && !errors.Is(err, io.ErrClosedPipe) {
+		return err
+	}
+	return nil
 }
