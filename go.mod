@@ -74,6 +74,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240213162025-012b6fc9bca9 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gorm.io/plugin/dbresolver v1.5.0 // indirect
 )
 
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16

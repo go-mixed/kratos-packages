@@ -4,6 +4,7 @@ import (
 	"context"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/cache"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/clause"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/event"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
 	"reflect"
@@ -59,6 +60,13 @@ func (repo *Repository[T]) GetDB(ctx context.Context) *db.DB {
 	}
 
 	return repo.db.WithContext(ctx)
+}
+
+// Clauses 添加条件，比如：Clauses(clause.Write).Find(ctx, cnd.Eq("id", 1))，表示强制使用主库查询
+func (repo *Repository[T]) Clauses(cnds ...clause.Expression) IOrm[T] {
+	_repo := *repo
+	_repo.db = repo.db.Clauses(cnds...)
+	return &_repo
 }
 
 // Transaction 开启事务

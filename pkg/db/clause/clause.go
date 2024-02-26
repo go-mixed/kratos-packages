@@ -1,6 +1,9 @@
 package clause
 
-import "gorm.io/gorm/clause"
+import (
+	"gorm.io/gorm/clause"
+	"gorm.io/plugin/dbresolver"
+)
 
 type (
 	Locking    = clause.Locking
@@ -10,4 +13,6 @@ type (
 
 const (
 	CurrentTable = clause.CurrentTable
+	Read         = dbresolver.Read
+	Write        = dbresolver.Write
 )

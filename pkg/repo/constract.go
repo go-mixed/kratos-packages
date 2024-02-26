@@ -4,6 +4,7 @@ import (
 	"context"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/cache"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/clause"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/cnd"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/event"
 )
@@ -23,6 +24,8 @@ type IOrm[T db.Tabler] interface {
 
 	// GetDB 获取db 从上下文中取出db
 	GetDB(ctx context.Context) *db.DB
+
+	Clauses(cnds ...clause.Expression) IOrm[T]
 
 	IOrmSetter[T]
 	IOrmGetter[T]
