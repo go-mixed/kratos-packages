@@ -18,3 +18,6 @@ type (
 	JSON   = datatypes.JSON
 	Tabler = schema.Tabler
 )
+
+type ModelCollection []Tabler
+type SeederCollection []ISeeder
