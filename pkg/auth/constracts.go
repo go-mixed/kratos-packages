@@ -30,4 +30,5 @@ var (
 	ErrGuardNotFound       = errors.Unauthorized(UnauthorizedReason, "guard not found")
 	ErrTokenDisabled       = errors.New(http.StatusForbidden, ForbiddenReason, "access token is disabled")
 	ErrRefreshTokenInvalid = errors.Unauthorized(UnauthorizedReason, "refresh token is invalid or not found")
+	ErrForbidden           = errors.New(http.StatusForbidden, ForbiddenReason, "not allowed to access this resource")
 )
