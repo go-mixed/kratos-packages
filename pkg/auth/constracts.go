@@ -28,6 +28,7 @@ var (
 	ErrTokenExpired        = errors.New(http.StatusNotAcceptable, ExpiredReason, "token is expired")
 	ErrTokenInvalid        = errors.Unauthorized(UnauthorizedReason, "token is invalid or disabled")
 	ErrGuardNotFound       = errors.Unauthorized(UnauthorizedReason, "guard not found")
+	ErrGuardNotMatch       = errors.Unauthorized(ForbiddenReason, "guard not match")
 	ErrTokenDisabled       = errors.New(http.StatusForbidden, ForbiddenReason, "access token is disabled")
 	ErrRefreshTokenInvalid = errors.Unauthorized(UnauthorizedReason, "refresh token is invalid or not found")
 	ErrForbidden           = errors.New(http.StatusForbidden, ForbiddenReason, "not allowed to access this resource")
