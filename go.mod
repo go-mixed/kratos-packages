@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/RussellLuo/timingwheel v0.0.0-20220218152713-54845bda3108
-	github.com/casbin/casbin/v2 v2.84.0
+	github.com/casbin/casbin/v2 v2.84.1
 	github.com/casbin/gorm-adapter/v3 v3.21.0
 	github.com/gammazero/workerpool v1.1.3
 	github.com/go-kratos/kratos/contrib/config/apollo/v2 v2.0.0-20240311125537-f566bdc2e6ff
@@ -12,7 +12,6 @@ require (
 	github.com/go-kratos/kratos/contrib/metrics/prometheus/v2 v2.0.0-20240311125537-f566bdc2e6ff
 	github.com/go-kratos/kratos/v2 v2.7.2
 	github.com/google/uuid v1.6.0
-	github.com/google/wire v0.6.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.19.0
@@ -99,7 +98,7 @@ require (
 	modernc.org/libc v1.44.0 // indirect
 	modernc.org/mathutil v1.6.0 // indirect
 	modernc.org/memory v1.7.2 // indirect
-	modernc.org/sqlite v1.29.3 // indirect
+	modernc.org/sqlite v1.29.4 // indirect
 )
 
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
