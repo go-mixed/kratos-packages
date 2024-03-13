@@ -9,18 +9,14 @@ import (
 
 type rbacMiddlewareFunc func(ctx context.Context, guard auth.IGuard) (bool, error)
 
+// NewRbacMiddleware 用于Kratos http server的rbac中间件
 func NewRbacMiddleware(rbacFunc rbacMiddlewareFunc, logger log.Logger) middleware.Middleware {
 	logHelper := log.NewModuleHelper(logger, "middleware/rbac")
 	return func(nextHandler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (any, error) {
 			l := logHelper.WithContext(ctx)
 			var guard auth.IGuard
-			if user, _ := auth.FromContext(ctx); user == nil {
-				guard = &auth.Guard{
-					GuardName:       "anonymous",
-					AuthorizationID: 0,
-				}
-			} else {
+			if user, _ := auth.FromContext(ctx); user != nil {
 				guard = user.GetGuardModel()
 			}
 
@@ -35,7 +31,7 @@ func NewRbacMiddleware(rbacFunc rbacMiddlewareFunc, logger log.Logger) middlewar
 				return nil, auth.ErrForbidden
 			}
 
-			return req, nil
+			return nextHandler(ctx, req)
 		}
 	}
 }
