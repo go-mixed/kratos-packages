@@ -33,6 +33,10 @@ func (repo *Repository[T]) GetCache(ctx context.Context, key string) (bool, T, e
 	return cache.AsModernCache[T](repo.cache).Get(ctx, key)
 }
 
+func (repo *Repository[T]) ForgetCache(ctx context.Context, keys ...string) error {
+	return repo.cache.Forget(ctx, keys...)
+}
+
 func (repo *Repository[T]) GetCacheForList(ctx context.Context, key string) ([]T, error) {
 	_, res, err := cache.AsModernCache[[]T](repo.cache).Get(ctx, key)
 	return res, err

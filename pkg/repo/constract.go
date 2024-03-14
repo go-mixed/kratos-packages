@@ -125,6 +125,8 @@ type IRepositoryCache[T db.Tabler] interface {
 	Remember(key string, options ...cache.Option) IRemember[T]
 	// GetCache 获取某key的cache，并转化为T对象
 	GetCache(ctx context.Context, key string) (bool, T, error)
+	// ForgetCache 删除某keys的cache
+	ForgetCache(ctx context.Context, keys ...string) error
 	// GetCacheForList 获取某key的cache，并转化为[]T对象列表
 	GetCacheForList(ctx context.Context, key string) ([]T, error)
 }
