@@ -54,35 +54,47 @@ func (repo *Repository[T]) Delete(ctx context.Context, models ...T) error {
 // DeleteWithBuilder 使用query删除资源
 // example: repo.Delete(ctx, db.ID(1))、或repo.Delete(ctx, cnd.Where("name", "tom"))
 func (repo *Repository[T]) DeleteWithBuilder(ctx context.Context, query *cnd.QueryBuilder) error {
-	return query.Build(repo.GetDB(ctx)).Delete(repo.modelCreator()).Error
+	orm := repo.GetDB(ctx).Model(repo.modelCreator())
+	// Delete()第一个参数必须是model，即repo.modelCreator()，不然无法绑定Where条件，并且不能在Delete之前设置orm.Model(...)
+	if err := query.Build(repo.GetDB(ctx)).Delete(repo.modelCreator()).Error; err != nil {
+		return err
+	}
+
+	return repo.onModelEvent(ctx, orm, nil, event.BatchDeleted, query)
 }
 
 // DeletePrimary 通过主键删除资源
 // example: repo.DeletePrimary(ctx, 1, 2, 3)
 func (repo *Repository[T]) DeletePrimary(ctx context.Context, primary ...any) error {
-	return repo.GetDB(ctx).Delete(repo.modelCreator(), primary).Error
+	orm := repo.GetDB(ctx).Model(repo.modelCreator())
+	// Delete() 第一个参数必须是model，并且不能在Delete之前设置orm.Model(...)
+	if err := repo.GetDB(ctx).Delete(repo.modelCreator(), primary).Error; err != nil {
+		return err
+	}
+
+	return repo.onModelEvent(ctx, orm, nil, event.BatchDeleted, cnd.InID(primary))
 }
 
 // UpdateColumns 更新资源多个字段
 func (repo *Repository[T]) UpdateColumns(ctx context.Context, query *cnd.QueryBuilder, attributes Columns) error {
 	orm := repo.GetDB(ctx).Model(repo.modelCreator())
-
+	// 和Delete不同的是，需要在Updates之前设置orm.Model(...)
 	if err := query.Build(orm).Updates(attributes).Error; err != nil {
 		return errors.Wrapf(err, "repo UpdateColumns method of table \"%s\" failed", repo.modelCreator().TableName())
 	}
 
-	return repo.onModelEvent(ctx, orm, nil, event.BatchUpdated)
+	return repo.onModelEvent(ctx, orm, nil, event.BatchUpdated, query, attributes)
 }
 
 // UpdateColumn 更新资源单个字段
 func (repo *Repository[T]) UpdateColumn(ctx context.Context, query *cnd.QueryBuilder, key string, value any) error {
 	orm := repo.GetDB(ctx).Model(repo.modelCreator())
-
+	// 和Delete不同的是，需要在Update之前设置orm.Model(...)
 	if err := query.Build(orm).Update(key, value).Error; err != nil {
 		return errors.Wrapf(err, "repo UpdateColumn method of table \"%s\" failed", repo.modelCreator().TableName())
 	}
 
-	return repo.onModelEvent(ctx, orm, nil, event.BatchUpdated)
+	return repo.onModelEvent(ctx, orm, nil, event.BatchUpdated, query, Columns{key: value})
 }
 
 // Incr 递增某字段
