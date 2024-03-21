@@ -90,6 +90,11 @@ func GetClassName(v any) string {
 	return typeOf.PkgPath() + "." + typeOf.Name()
 }
 
+// Ptr 将一个值转为指针
+func Ptr[T any](v T) *T {
+	return &v
+}
+
 // IsPtr 判断是否是指针类型
 func IsPtr[T any](v T) bool {
 	return reflect.TypeOf(v).Kind() == reflect.Ptr
