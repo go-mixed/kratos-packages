@@ -9,6 +9,9 @@ type (
 	Locking    = clause.Locking
 	Expression = clause.Expression
 	Table      = clause.Table
+	Returning  = clause.Returning
+	Column     = clause.Column
+	Join       = clause.Join
 )
 
 const (

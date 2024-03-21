@@ -1,6 +1,7 @@
 package cnd
 
 import (
+	"github.com/samber/lo"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/clause"
 	"gorm.io/gorm"
 	"time"
@@ -15,8 +16,10 @@ type QueryBuilder struct {
 	locker        *clause.Locking
 	selector      *ParamPair
 
-	preloads  map[string][]any
-	withTrash bool
+	preloads                   map[string][]any
+	withTrash                  bool
+	withDeleteReturning        bool
+	deleteReturningColumnNames []string
 }
 
 func NewQueryBuilder() *QueryBuilder {
@@ -254,9 +257,16 @@ func (q *QueryBuilder) Preloads(preloads ...string) *QueryBuilder {
 	return q
 }
 
-// WithTrash .
+// WithTrash 查询包括软删除的记录 db = db.Unscoped()
 func (q *QueryBuilder) WithTrash() *QueryBuilder {
 	q.withTrash = true
+	return q
+}
+
+// WithDeleteReturning 启用删除回写，并设置需要返回的字段名（不设置表示返回全部字段） db = db.Clause(clause.Returning{Columns: ...})
+func (q *QueryBuilder) WithDeleteReturning(columnNames ...string) *QueryBuilder {
+	q.withDeleteReturning = true
+	q.deleteReturningColumnNames = columnNames
 	return q
 }
 
@@ -266,6 +276,14 @@ func (q *QueryBuilder) Build(db *gorm.DB) *gorm.DB {
 
 	if q.withTrash {
 		ret = ret.Unscoped()
+	}
+
+	if q.withDeleteReturning {
+		ret = ret.Clauses(clause.Returning{
+			Columns: lo.Map(q.deleteReturningColumnNames, func(name string, _ int) clause.Column {
+				return clause.Column{Name: name}
+			}),
+		})
 	}
 
 	for preload, args := range q.preloads {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/clause"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/cnd"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/event"
 )
@@ -55,24 +56,39 @@ func (repo *Repository[T]) Delete(ctx context.Context, models ...T) error {
 // example: repo.Delete(ctx, db.ID(1))、或repo.Delete(ctx, cnd.Where("name", "tom"))
 func (repo *Repository[T]) DeleteWithBuilder(ctx context.Context, query *cnd.QueryBuilder) error {
 	orm := repo.GetDB(ctx).Model(repo.modelCreator())
-	// Delete()第一个参数必须是model，即repo.modelCreator()，不然无法绑定Where条件，并且不能在Delete之前设置orm.Model(...)
-	if err := query.Build(repo.GetDB(ctx)).Delete(repo.modelCreator()).Error; err != nil {
+	var models []T
+	// 启用删除回写（PgSQL支持）
+	// Delete()第一个参数必须是model(s)，不然无法绑定Where条件，并且不能在Delete之前设置db.Model(...)
+	if err := query.WithDeleteReturning().Build(repo.GetDB(ctx)).Delete(&models).Error; err != nil {
 		return err
 	}
+	// 循环触发事件
+	for _, model := range models {
+		if err := repo.onModelEvent(ctx, orm, model, event.Deleted); err != nil {
+			return err
+		}
+	}
 
-	return repo.onModelEvent(ctx, orm, nil, event.BatchDeleted, query)
+	return nil
 }
 
 // DeletePrimary 通过主键删除资源
 // example: repo.DeletePrimary(ctx, 1, 2, 3)
 func (repo *Repository[T]) DeletePrimary(ctx context.Context, primary ...any) error {
 	orm := repo.GetDB(ctx).Model(repo.modelCreator())
-	// Delete() 第一个参数必须是model，并且不能在Delete之前设置orm.Model(...)
-	if err := repo.GetDB(ctx).Delete(repo.modelCreator(), primary).Error; err != nil {
+	var models []T
+	// 启用删除回写（PgSQL支持）
+	// Delete() 第一个参数必须是model(s)，并且不能在Delete之前设置db.Model(...)
+	if err := repo.GetDB(ctx).Clauses(clause.Returning{}).Delete(&models, primary).Error; err != nil {
 		return err
 	}
-
-	return repo.onModelEvent(ctx, orm, nil, event.BatchDeleted, cnd.InID(primary))
+	// 循环触发事件
+	for _, model := range models {
+		if err := repo.onModelEvent(ctx, orm, model, event.Deleted); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // UpdateColumns 更新资源多个字段
