@@ -95,6 +95,16 @@ func Ptr[T any](v T) *T {
 	return &v
 }
 
+// Ptrs 将多个值转为指针
+func Ptrs[T any](vs ...T) []*T {
+	ptrs := make([]*T, len(vs))
+	for i, v := range vs {
+		v := v // 避免闭包引用同一个变量（Golang1.22之前）
+		ptrs[i] = &v
+	}
+	return ptrs
+}
+
 // IsPtr 判断是否是指针类型
 func IsPtr[T any](v T) bool {
 	return reflect.TypeOf(v).Kind() == reflect.Ptr

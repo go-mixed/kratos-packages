@@ -13,6 +13,10 @@ import (
 	"time"
 )
 
+const (
+	SseContentType = "text/event-stream"
+)
+
 type Sse struct {
 	Id      string
 	Event   string

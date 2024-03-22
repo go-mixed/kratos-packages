@@ -5,6 +5,7 @@ import (
 	"errors"
 	protojson "github.com/go-kratos/kratos/v2/encoding/json"
 	kratosHttp "github.com/go-kratos/kratos/v2/transport/http"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 	"io"
 )
@@ -30,14 +31,19 @@ func NewStreamWriter(ctx kratosHttp.Context, contentType string) *StreamWriter {
 }
 
 // Streaming quickly creates a stream writer, and calls the callback to write data to the stream.
-func Streaming(ctx kratosHttp.Context, contentType string, callback func(s *StreamWriter)) error {
+func Streaming(ctx kratosHttp.Context, contentType string, callback func(s *StreamWriter) error) error {
 	stream := NewStreamWriter(ctx, contentType)
-	go func() {
+	eg := errgroup.Group{}
+	eg.Go(func() error {
+		// Close the stream writer when the callback returns. It'll stop the second goroutine.
 		defer stream.Close()
 
-		callback(stream)
-	}()
-	return stream.Wait()
+		return callback(stream)
+	})
+	eg.Go(func() error {
+		return stream.Wait()
+	})
+	return eg.Wait()
 }
 
 // Close closes the stream writer. You MUST call this method when you finish writing to the stream.
@@ -97,7 +103,7 @@ func (s *StreamWriter) WriteSse(sse Sse) error {
 	return err
 }
 
-// Wait blocks until the stream is closed. Run it in the main goroutine.
+// Wait blocks until the stream.pipeReader is closed. Run it in the main goroutine.
 func (s *StreamWriter) Wait() error {
 	if err := s.ctx.Stream(200, s.contentType, s.pipeReader); err != nil && !errors.Is(err, io.ErrClosedPipe) {
 		return err
