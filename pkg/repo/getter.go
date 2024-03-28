@@ -29,6 +29,17 @@ func (repo *Repository[T]) First(ctx context.Context, query *cnd.QueryBuilder) (
 	return model, nil
 }
 
+// FirstOrFail 查询第一个资源，如果没有找到返回ErrRecordNotFound错误
+func (repo *Repository[T]) FirstOrFail(ctx context.Context, query *cnd.QueryBuilder) (T, error) {
+	m, err := repo.First(ctx, query)
+	if err != nil {
+		return m, err
+	} else if m == nil {
+		return m, db.ErrRecordNotFound
+	}
+	return m, nil
+}
+
 // Get 查询获取资源集合，如果没有找到【不会】返回ErrRecordNotFound
 func (repo *Repository[T]) Get(ctx context.Context, query *cnd.QueryBuilder) ([]T, error) {
 	var models []T

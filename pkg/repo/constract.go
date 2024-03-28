@@ -79,12 +79,13 @@ type IOrmGetter[T db.Tabler] interface {
 
 	// First 查询第一个资源，如果没有找到【不会】gorm.ErrRecordNotFound，但是scanner仍然可能被空值实例化
 	// query 查询条件
-	// scanner 结构指针
 	First(ctx context.Context, query *cnd.QueryBuilder) (T, error)
+	// FirstOrFail 查询第一个资源，如果没有找到返回gorm.ErrRecordNotFound错误
+	// query 查询条件
+	FirstOrFail(ctx context.Context, query *cnd.QueryBuilder) (T, error)
 
 	// Find 通过主键查询第一个资源，如果没有找到【不会】gorm.ErrRecordNotFound
 	// primary 主键值
-	// scanner 结构指针
 	Find(ctx context.Context, primary any) (T, error)
 	// FindOrFail 通过主键查询第一个资源，如果没有找到返回gorm.ErrRecordNotFound错误
 	FindOrFail(ctx context.Context, primary any) (T, error)
@@ -94,7 +95,6 @@ type IOrmGetter[T db.Tabler] interface {
 
 	// Get 查询获取资源集合，如果没有找到【不会】gorm.ErrRecordNotFound
 	// query 查询条件
-	// scanner 结构指针
 	Get(ctx context.Context, query *cnd.QueryBuilder) ([]T, error)
 
 	// Paginate 资源分页

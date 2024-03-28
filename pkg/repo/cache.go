@@ -68,6 +68,15 @@ func (c *rememberCacheGetter[T]) First(ctx context.Context, query *cnd.QueryBuil
 	})
 }
 
+// FirstOrFail 通过查询条件获取第一个记录，没有找到则返回gorm.ErrRecordNotFound错误。
+// 会先尝试获取缓存，如果没有获取到，则数据库查询，并设置缓存。
+// 注意：如果没有查询到记录，不会设置缓存。
+func (c *rememberCacheGetter[T]) FirstOrFail(ctx context.Context, query *cnd.QueryBuilder) (T, error) {
+	return cache.AsModernCache[T](c.cache).Remember(ctx, c.cacheKey, func(ctx context.Context) (T, error) {
+		return c.repository.FirstOrFail(ctx, query)
+	})
+}
+
 // Find 通过主键查询第一个资源。
 // 会先尝试获取缓存，如果没有获取到，则数据库查询，并设置缓存。
 // 注意：如果没有查询到记录，不会设置缓存。
