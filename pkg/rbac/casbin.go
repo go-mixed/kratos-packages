@@ -99,10 +99,6 @@ func (c *Casbin) ClearUserPolicies(guard auth.IGuard) error {
 
 // GetUserRoles 获取用户的角色，如果有多个用户，则返回所有用户的角色（去重）
 func (c *Casbin) GetUserRoles(guards ...auth.IGuard) ([]string, error) {
-	if err := c.LoadUserPolicies(guards...); err != nil {
-		return nil, err
-	}
-
 	var roles []string
 	for _, user := range c.getUserNames(guards...) {
 		r, err := c.GetRolesForUser(user)
@@ -161,7 +157,7 @@ func (c *Casbin) GetUserRolePolicies(guards ...auth.IGuard) [][]string {
 	return c.uniquePolicies(policies)
 }
 
-// LoadRolePolicies 加载角色的策略。注意：每次加载都会清理所有角色的策略，然后按下面的条件加载用户组的策略
+// LoadRolePolicies 加载角色的策略。
 func (c *Casbin) LoadRolePolicies(roles ...string) error {
 	return c.LoadIncrementalFilteredPolicy(gormadapter.Filter{Ptype: []string{"p"}, V0: roles})
 }
@@ -176,7 +172,13 @@ func (c *Casbin) LazyLoadRolePolicies(roles ...string) error {
 	return c.LoadRolePolicies(roles...)
 }
 
-// LoadUserPolicies 加载用户（以及用户所属的角色）的策略。注意：每次加载都会清理所有用户、角色的策略，然后按下面的条件加载用户、角色的策略
+// LoadUserRoles 加载用户的角色。
+func (c *Casbin) LoadUserRoles(guards ...auth.IGuard) error {
+	users := c.getUserNames(guards...)
+	return c.LoadIncrementalFilteredPolicy(gormadapter.Filter{Ptype: []string{"g"}, V0: users})
+}
+
+// LoadUserPolicies 加载用户（以及用户所属的角色）的策略。
 func (c *Casbin) LoadUserPolicies(guards ...auth.IGuard) error {
 	users := c.getUserNames(guards...)
 

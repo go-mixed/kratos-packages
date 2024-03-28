@@ -9,7 +9,7 @@ import (
 )
 
 type Model struct {
-	ID        int64     `gorm:"primaryKey" json:"id"`
+	ID        int64     `gorm:"primaryKey" json:"id" yaml:"id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -27,7 +27,7 @@ func (m *Model) OnEvent(ctx context.Context, tx *gorm.DB, model schema.Tabler, e
 }
 
 type SoftDeleteModel struct {
-	ID        int64          `gorm:"primaryKey" json:"id"`
+	ID        int64          `gorm:"primaryKey" json:"id" yaml:"id"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at"`
