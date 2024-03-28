@@ -31,13 +31,17 @@ func (repo *Repository[T]) First(ctx context.Context, query *cnd.QueryBuilder) (
 
 // FirstOrFail 查询第一个资源，如果没有找到返回ErrRecordNotFound错误
 func (repo *Repository[T]) FirstOrFail(ctx context.Context, query *cnd.QueryBuilder) (T, error) {
-	m, err := repo.First(ctx, query)
-	if err != nil {
-		return m, err
-	} else if m == nil {
-		return m, db.ErrRecordNotFound
+	var model T
+	var nilModel T
+	orm := repo.GetDB(ctx).Model(repo.modelCreator())
+
+	if err := query.Build(orm).First(&model).Error; err != nil {
+		if errors.Is(err, db.ErrRecordNotFound) {
+			return nilModel, errors.Wrapf(err, "the record of repo First method of table \"%s\" is not found", repo.modelCreator().TableName())
+		}
+		return nilModel, errors.Wrapf(err, "repo First method of table \"%s\" failed", repo.modelCreator().TableName())
 	}
-	return m, nil
+	return model, nil
 }
 
 // Get 查询获取资源集合，如果没有找到【不会】返回ErrRecordNotFound
