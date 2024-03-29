@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	kratosLog "gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
+	"strings"
 	"time"
 
 	gormLogger "gorm.io/gorm/logger"
@@ -58,6 +59,9 @@ func (l *logger) Info(ctx context.Context, msg string, data ...any) {
 // Warn print warn messages
 func (l *logger) Warn(ctx context.Context, msg string, data ...any) {
 	if l.LogLevel >= gormLogger.Warn {
+		if strings.Contains(msg, "duplicated callback") {
+			return
+		}
 		l.kratosLogger.WithContext(ctx).Warnf(msg, data...)
 	}
 }
