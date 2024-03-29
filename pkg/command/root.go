@@ -2,11 +2,14 @@ package command
 
 import (
 	"github.com/spf13/cobra"
+	"os"
+	"path/filepath"
 )
 
 func NewRootCmd() ICmder {
+	exePath, _ := os.Executable()
 	cmd := &cobra.Command{
-		Use:           "app",
+		Use:           filepath.Base(exePath),
 		SilenceErrors: true, // 关闭错误输出
 		SilenceUsage:  true, // 关闭错误输出
 		Run: func(cmd *cobra.Command, args []string) {
