@@ -47,13 +47,14 @@ type IOrmSetter[T db.Tabler] interface {
 	// example: repo.Save(ctx, &User{ID: 1, Name: "tom"}, &User{Name: "jerry"})
 	// T必须为指针类型
 	Save(ctx context.Context, models ...T) error
-	// Update 批量更新资源，注意：零值不会更新。如果没有主键，为了避免批量更新，会返回ErrMissingWhereClaus
-	// example: repo.Update(ctx, &User{ID: 1, Name: "tom"}, &User{ID: 2, Name: "jerry"})
+	// Update 批量更新资源。如果没有主键，为了避免批量更新，会返回ErrMissingWhereClaus。
+	// 注意：如果不传递updatingColumns，【不会】更新零值字段，可以传递"*"更新所有字段
+	// example: repo.Update(ctx, &User{ID: 1, Name: "tom", Gender: "male"}, "*")
 	// T必须为指针类型
-	Update(ctx context.Context, models ...T) error
-	// UpdateColumns 更新资源多个字段
+	Update(ctx context.Context, model T, updatingColumns ...string) error
+	// UpdateColumns 更新资源的多个字段
 	UpdateColumns(ctx context.Context, query *cnd.QueryBuilder, attributes Columns) error
-	// UpdateColumn 更新资源单个字段
+	// UpdateColumn 更新资源的单个字段
 	UpdateColumn(ctx context.Context, query *cnd.QueryBuilder, key string, value any) error
 	// Delete 使用model删除资源。如果没有主键，为了避免批量删除，会返回ErrMissingWhereClause
 	// example: repo.Delete(ctx, &User{ID: 1}, &User{ID: 2})
@@ -103,6 +104,7 @@ type IOrmGetter[T db.Tabler] interface {
 
 type IRemember[T db.Tabler] interface {
 	IOrmGetter[T]
+	// Do 自定义返回内容
 	Do(ctx context.Context, callback func(context.Context, *Repository[T]) (any, error)) (any, error)
 }
 
@@ -117,7 +119,7 @@ type IModelEvent[T db.Tabler] interface {
 
 type IRepositoryCache[T db.Tabler] interface {
 	// Remember 如果有缓存，则返回缓存，不然就执行后面的动作
-	// 此函数不能单独使用，需要：repo.Remember("key-1", 0).Get(ctx, cnd.Where(...))
+	// 此函数不能单独使用，需要：repo.Remember("key-1", ...).Get(ctx, cnd.Where(...))
 	// 如果只想得到Cache，可以使用GetCache、GetCacheForModel、GetCacheForModelList；如果只想设置Cache，可以使用SetCache
 	// 注意：默认情况下，没有查询到记录（包括Count()==0），不会设置缓存。
 	// 当options传入WithSaveEmptyOnRemember()，可以强制保存空值

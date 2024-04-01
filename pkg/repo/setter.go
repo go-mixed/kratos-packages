@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/clause"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/cnd"
@@ -32,17 +33,23 @@ func (repo *Repository[T]) Save(ctx context.Context, models ...T) error {
 	return nil
 }
 
-// Update 批量更新资源，注意：零值不会更新。如果没有主键，为了避免批量更新，会返回ErrMissingWhereClaus
-// example: repo.Update(ctx, &User{ID: 1, Name: "tom"}, &User{ID: 2, Name: "jerry"})
+// Update 批量更新资源。如果没有主键，为了避免批量更新，会返回ErrMissingWhereClaus。
+// 注意：如果不传递updatingColumns，【不会】更新零值字段，可以传递"*"更新所有字段
+// example: repo.Update(ctx, &User{ID: 1, Name: "tom", Gender: "male"}, "*")
 // T必须为指针类型
-func (repo *Repository[T]) Update(ctx context.Context, models ...T) error {
-	// Updates 不支持[]T，需要遍历
-	for _, model := range models {
-		if err := repo.GetDB(ctx).Model(model).Updates(model).Error; err != nil {
-			return err
-		}
+func (repo *Repository[T]) Update(ctx context.Context, model T, updatingColumns ...string) error {
+	var err error
+	if len(updatingColumns) > 0 {
+		err = repo.GetDB(ctx).Model(model).Select(
+			updatingColumns[0], lo.Map(updatingColumns[1:], func(item string, _ int) any {
+				return item
+			})...,
+		).Updates(model).Error
+	} else {
+		err = repo.GetDB(ctx).Model(model).Updates(model).Error
 	}
-	return nil
+
+	return err
 }
 
 // Delete 使用model删除资源。如果没有主键，为了避免批量删除，会返回ErrMissingWhereClause

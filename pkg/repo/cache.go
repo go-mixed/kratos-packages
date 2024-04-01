@@ -13,6 +13,12 @@ type rememberCacheGetter[T db.Tabler] struct {
 	cacheKey   string
 }
 
+// Remember 如果有缓存，则返回缓存，不然就执行后面的动作
+// 此函数不能单独使用，需要：repo.Remember("key-1", ...).Get(ctx, cnd.Where(...))
+// 如果只想得到Cache，可以使用GetCache、GetCacheForModel、GetCacheForModelList；如果只想设置Cache，可以使用SetCache
+// 注意：默认情况下，没有查询到记录（包括Count()==0），不会设置缓存。
+// 当options传入WithSaveEmptyOnRemember()，可以强制保存空值
+// 如果要修改缓存的过期时间，可以传递WithExpiration()，如果要修改缓存的key前缀，可以WithKeyPrefix()
 func (repo *Repository[T]) Remember(key string, options ...cache.Option) IRemember[T] {
 	c := &rememberCacheGetter[T]{
 		repository: repo,
@@ -29,14 +35,17 @@ func (repo *Repository[T]) Remember(key string, options ...cache.Option) IRememb
 	return c
 }
 
+// GetCache 获取某key的cache，并转化为T对象
 func (repo *Repository[T]) GetCache(ctx context.Context, key string) (bool, T, error) {
 	return cache.AsModernCache[T](repo.cache).Get(ctx, key)
 }
 
+// ForgetCache 删除某keys的cache
 func (repo *Repository[T]) ForgetCache(ctx context.Context, keys ...string) error {
 	return repo.cache.Forget(ctx, keys...)
 }
 
+// GetCacheForList 获取某key的cache，并转化为[]T对象列表
 func (repo *Repository[T]) GetCacheForList(ctx context.Context, key string) ([]T, error) {
 	_, res, err := cache.AsModernCache[[]T](repo.cache).Get(ctx, key)
 	return res, err
