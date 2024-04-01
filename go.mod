@@ -4,11 +4,11 @@ go 1.21
 
 require (
 	github.com/RussellLuo/timingwheel v0.0.0-20220218152713-54845bda3108
-	github.com/casbin/casbin/v2 v2.85.0
-	github.com/casbin/gorm-adapter/v3 v3.22.0
+	github.com/casbin/casbin/v2 v2.86.0
+	github.com/casbin/gorm-adapter/v3 v3.23.0
 	github.com/gammazero/workerpool v1.1.3
-	github.com/go-kratos/kratos/contrib/config/apollo/v2 v2.0.0-20240322155018-41971ffa647a
-	github.com/go-kratos/kratos/contrib/log/zap/v2 v2.0.0-20240322155018-41971ffa647a
+	github.com/go-kratos/kratos/contrib/config/apollo/v2 v2.0.0-20240401040316-f715eb0bd808
+	github.com/go-kratos/kratos/contrib/log/zap/v2 v2.0.0-20240401040316-f715eb0bd808
 	github.com/go-kratos/kratos/contrib/metrics/prometheus/v2 v2.0.0-20240322155018-41971ffa647a
 	github.com/go-kratos/kratos/v2 v2.7.3
 	github.com/google/uuid v1.6.0
