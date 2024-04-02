@@ -309,9 +309,9 @@ func (q *QueryBuilder) Build(db *gorm.DB) *gorm.DB {
 	if len(q.orders) > 0 {
 		for _, item := range q.orders {
 			if item.Asc {
-				ret = ret.Order("`" + item.Column + "` ASC")
+				ret = ret.Order(item.Column + " ASC")
 			} else {
-				ret = ret.Order("`" + item.Column + "` DESC")
+				ret = ret.Order(item.Column + " DESC")
 			}
 		}
 	}
