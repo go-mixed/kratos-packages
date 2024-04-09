@@ -7,32 +7,8 @@ import (
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/cnd"
 )
 
-type rememberCacheGetter[T db.Tabler] struct {
-	repository *Repository[T]
-	cache      *cache.Cache
-	cacheKey   string
-}
-
-// Remember 如果有缓存，则返回缓存，不然就执行后面的动作
-// 此函数不能单独使用，需要：repo.Remember("key-1", ...).Get(ctx, cnd.Where(...))
-// 如果只想得到Cache，可以使用GetCache、GetCacheForModel、GetCacheForModelList；如果只想设置Cache，可以使用SetCache
-// 注意：默认情况下，没有查询到记录（包括Count()==0），不会设置缓存。
-// 当options传入WithSaveEmptyOnRemember()，可以强制保存空值
-// 如果要修改缓存的过期时间，可以传递WithExpiration()，如果要修改缓存的key前缀，可以WithKeyPrefix()
-func (repo *Repository[T]) Remember(key string, options ...cache.Option) IRemember[T] {
-	c := &rememberCacheGetter[T]{
-		repository: repo,
-		cacheKey:   key,
-	}
-
-	_cache := repo.cache.Clone()
-	// 由于cache.Option是用于cache.New的。这里借用这些方法，将只会设置到c.cache.options，之后需要调用WithOptions才会生效
-	for _, option := range options {
-		option(_cache)
-	}
-	c.cache = _cache.WithOptions(_cache.GetOptions())
-
-	return c
+func (repo *Repository[T]) getCacheDriver() *cache.Cache {
+	return repo.cache
 }
 
 // GetCache 获取某key的cache，并转化为T对象
@@ -51,10 +27,39 @@ func (repo *Repository[T]) GetCacheForList(ctx context.Context, key string) ([]T
 	return res, err
 }
 
+type rememberCacheGetter[T db.Tabler] struct {
+	repository IRepository[T]
+	cache      *cache.Cache
+	cacheKey   string
+}
+
+// Remember 如果有缓存，则返回缓存，不然就执行后面的动作
+// **** 注意：(repo *Repository[T]).Remember 在编译时，会非常非常慢，所以改成了这种方式 ****
+// 此函数不能单独使用，需要：Remember(repo)("key-1", ...).Get(ctx, cnd.Where(...))
+// 如果只想得到Cache，可以使用GetCache、GetCacheForModel、GetCacheForModelList；如果只想设置Cache，可以使用SetCache
+// 注意：默认情况下，没有查询到记录（包括Count()==0），不会设置缓存。
+// 当options传入WithSaveEmptyOnRemember()，可以强制保存空值
+// 如果要修改缓存的过期时间，可以传递WithExpiration()，如果要修改缓存的key前缀，可以WithKeyPrefix()
+func Remember[T db.Tabler](repo IRepository[T], key string, options ...cache.Option) IRemember[T] {
+	c := &rememberCacheGetter[T]{
+		repository: repo,
+	}
+
+	c.cacheKey = key
+	_cache := repo.getCacheDriver().Clone()
+	// 由于cache.Option是用于cache.New的。这里借用这些方法，将只会设置到c.cache.options，之后需要调用WithOptions才会生效
+	for _, option := range options {
+		option(_cache)
+	}
+	c.cache = _cache.WithOptions(_cache.GetOptions())
+
+	return c
+}
+
 // ------------ rememberCacheGetter ------------
 
 // Do 自定义返回内容
-func (c *rememberCacheGetter[T]) Do(ctx context.Context, callback func(context.Context, *Repository[T]) (any, error)) (any, error) {
+func (c *rememberCacheGetter[T]) Do(ctx context.Context, callback func(context.Context, IRepository[T]) (any, error)) (any, error) {
 	return cache.AsModernCache[any](c.cache).Remember(ctx, c.cacheKey, func(ctx context.Context) (any, error) {
 		return callback(ctx, c.repository)
 	})

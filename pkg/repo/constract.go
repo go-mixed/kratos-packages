@@ -102,12 +102,6 @@ type IOrmGetter[T db.Tabler] interface {
 	Paginate(ctx context.Context, query *cnd.QueryBuilder, pagination *db.Pagination) ([]T, error)
 }
 
-type IRemember[T db.Tabler] interface {
-	IOrmGetter[T]
-	// Do 自定义返回内容
-	Do(ctx context.Context, callback func(context.Context, *Repository[T]) (any, error)) (any, error)
-}
-
 type IModelEvent[T db.Tabler] interface {
 	// RegisterEventListener 注册单个Model的事件
 	RegisterEventListener(eventType event.EventType, callback event.EventListenerFunc[T])
@@ -118,13 +112,7 @@ type IModelEvent[T db.Tabler] interface {
 }
 
 type IRepositoryCache[T db.Tabler] interface {
-	// Remember 如果有缓存，则返回缓存，不然就执行后面的动作
-	// 此函数不能单独使用，需要：repo.Remember("key-1", ...).Get(ctx, cnd.Where(...))
-	// 如果只想得到Cache，可以使用GetCache、GetCacheForModel、GetCacheForModelList；如果只想设置Cache，可以使用SetCache
-	// 注意：默认情况下，没有查询到记录（包括Count()==0），不会设置缓存。
-	// 当options传入WithSaveEmptyOnRemember()，可以强制保存空值
-	// 如果要修改缓存的过期时间，可以传递WithExpiration()，如果要修改缓存的key前缀，可以WithKeyPrefix()
-	Remember(key string, options ...cache.Option) IRemember[T]
+	getCacheDriver() *cache.Cache
 	// GetCache 获取某key的cache，并转化为T对象
 	GetCache(ctx context.Context, key string) (bool, T, error)
 	// ForgetCache 删除某keys的cache
@@ -137,4 +125,10 @@ type IRepository[T db.Tabler] interface {
 	IOrm[T]
 	IModelEvent[T]
 	IRepositoryCache[T]
+}
+
+type IRemember[T db.Tabler] interface {
+	IOrmGetter[T]
+	// Do 自定义返回内容
+	Do(ctx context.Context, callback func(context.Context, IRepository[T]) (any, error)) (any, error)
 }
