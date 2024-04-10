@@ -12,7 +12,7 @@ type modernCache[T any] struct {
 	options redis.Options
 }
 
-// AsModernCache 直接定义T，并返回ModernRedis[T]
+// AsModernCache 直接定义T，并返回ModernRedis[T]。比如：AsModernCache[string](c)，这是显式的定义T
 func AsModernCache[T any](c *Cache) *modernCache[T] {
 	return &modernCache[T]{
 		ModernRedis: redis.NewModernRedis[T](c.predis),
@@ -21,7 +21,8 @@ func AsModernCache[T any](c *Cache) *modernCache[T] {
 	}
 }
 
-// AsModernCacheBy 使用actual来定义T，并返回ModernRedis[T]
+// AsModernCacheBy 使用actual来定义T，并返回ModernRedis[T]。
+// 和AsModernCache得到的结果是一样的，只是用参数来推导T，比如：AsModernCacheBy(c, "")，T会被推导为string
 func AsModernCacheBy[T any](c *Cache, actual T) *modernCache[T] {
 	return AsModernCache[T](c)
 }
@@ -64,10 +65,18 @@ func (c *modernCache[T]) WithExpiration(expiration time.Duration) *modernCache[T
 	return c.WithOptions(options)
 }
 
-// WithSaveEmptyOnRemember 设置在调用remember时是否保存空值，并返回新的Cache
+// WithSaveEmptyOnRemember 设置在调用remember时是否保存空值（nil、空字符串、空数组、空map、空结构体），并返回新的Cache
 func (c *modernCache[T]) WithSaveEmptyOnRemember(saveIfZero bool) *modernCache[T] {
 	options := c.options
 	options.SaveEmptyOnRemember = saveIfZero
+
+	return c.WithOptions(options)
+}
+
+// WithForceOnRemember 设置在调用remember时是否强制刷新缓存，并返回新的Cache
+func (c *modernCache[T]) WithForceOnRemember(force bool) *modernCache[T] {
+	options := c.options
+	options.ForceOnRemember = force
 
 	return c.WithOptions(options)
 }

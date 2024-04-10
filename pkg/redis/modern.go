@@ -87,23 +87,29 @@ func (c *ModernRedis[T]) makeSlice(values []string) ([]T, error) {
 
 // Remember 先尝试获取缓存，如果没有获取到，则调用callback()获取值，并设置缓存。
 // 当SaveEmptyOnRemember为true时，即使callback()返回空值（空字符串、0、0长度的map或slice、以及均为空值的struct），也会设置缓存。
-func (c *ModernRedis[T]) Remember(ctx context.Context, key string, callback func(ctx context.Context) (T, error),
+func (c *ModernRedis[T]) Remember(
+	ctx context.Context,
+	key string,
+	callback func(ctx context.Context) (T, error),
 ) (T, error) {
 	var err error
 	var ok bool
 	var actual T
 	var nilT T
 
-	ok, actual, err = c.Get(ctx, key)
-	if err != nil {
-		return nilT, err
-	} else if ok { // 存在于缓存中，直接返回
-		// get不为空值，并且没有错误。但是actual没有获取到值，说明出现了未知的Scan错误
-		// 仅仅检查指针类型==nil
-		if utils.IsNil(actual) {
-			return nilT, errors.New("redis: get empty actual of " + key)
+	// 如果不强制获取缓存，尝试获取缓存
+	if !c.options.ForceOnRemember {
+		ok, actual, err = c.Get(ctx, key)
+		if err != nil {
+			return nilT, err
+		} else if ok { // 存在于缓存中，直接返回
+			// get不为空值，并且没有错误。但是actual没有获取到值，说明出现了未知的Scan错误
+			// 仅仅检查指针类型==nil
+			if utils.IsNil(actual) {
+				return nilT, errors.New("redis: get empty actual of " + key)
+			}
+			return actual, nil
 		}
-		return actual, nil
 	}
 
 	if callback != nil {
