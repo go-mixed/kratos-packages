@@ -61,5 +61,5 @@ func extractError(err error) (log.Level, string) {
 	if err != nil {
 		return log.LevelError, fmt.Sprintf("%+v", err)
 	}
-	return log.LevelInfo, ""
+	return log.LevelDebug, ""
 }
