@@ -150,7 +150,7 @@ func (s *Sse) String() string {
 	return result + "\n"
 }
 
-var separatorRegex = regexp.MustCompile(":\\s?")
+var separatorRegex = regexp.MustCompile(": ?")
 
 // SSEReader reads Server-Sent Events from an HTTP response and calls the callback for each event.
 func SSEReader(response *http.Response, callback func(sse Sse) error) error {
