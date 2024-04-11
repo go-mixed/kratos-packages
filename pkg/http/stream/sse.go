@@ -8,6 +8,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ type Sse struct {
 	Data    string
 	Retry   time.Duration
 	Comment string
+	Extra   map[string]string
 }
 
 type sseBuilder struct {
@@ -31,6 +33,7 @@ type sseBuilder struct {
 	data    string
 	retry   time.Duration
 	comment string
+	extra   map[string]string
 }
 
 func NewSseBuilder() *sseBuilder {
@@ -74,6 +77,15 @@ func (s *sseBuilder) Comment(comment string) *sseBuilder {
 	return s
 }
 
+func (s *sseBuilder) Extra(key, value string) *sseBuilder {
+	if s.extra == nil {
+		s.extra = make(map[string]string)
+	}
+	s.extra[key] = value
+	return s
+
+}
+
 func (s *sseBuilder) Build() Sse {
 	return Sse{
 		Id:      s.id,
@@ -81,6 +93,7 @@ func (s *sseBuilder) Build() Sse {
 		Data:    s.data,
 		Retry:   s.retry,
 		Comment: s.comment,
+		Extra:   make(map[string]string),
 	}
 }
 
@@ -90,10 +103,26 @@ func (s *Sse) Reset() {
 	s.Data = ""
 	s.Retry = 0
 	s.Comment = ""
+	s.Extra = nil
+}
+
+func (s *Sse) HasExtraKey(key string) bool {
+	if s.Extra == nil {
+		return false
+	}
+	_, ok := s.Extra[key]
+	return ok
+}
+
+func (s *Sse) ExtraValue(key string) string {
+	if s.Extra == nil {
+		return ""
+	}
+	return s.Extra[key]
 }
 
 func (s *Sse) IsEmpty() bool {
-	return s.Id == "" && s.Event == "" && s.Data == "" && s.Retry == 0 && s.Comment == ""
+	return s.Id == "" && s.Event == "" && s.Data == "" && s.Retry == 0 && s.Comment == "" && len(s.Extra) == 0
 }
 
 func (s *Sse) String() string {
@@ -113,8 +142,15 @@ func (s *Sse) String() string {
 	if s.Data != "" {
 		result += "data: " + s.Data + "\n"
 	}
+
+	for k, v := range s.Extra {
+		result += k + ": " + v + "\n"
+	}
+
 	return result + "\n"
 }
+
+var separatorRegex = regexp.MustCompile(":\\s?")
 
 // SSEReader reads Server-Sent Events from an HTTP response and calls the callback for each event.
 func SSEReader(response *http.Response, callback func(sse Sse) error) error {
@@ -141,9 +177,9 @@ func SSEReader(response *http.Response, callback func(sse Sse) error) error {
 		if err != nil && err != io.EOF {
 			return err
 		}
-		segments := strings.SplitN(line, ": ", 2)
+		segments := separatorRegex.Split(line, 2)
 		if len(segments) == 2 {
-			switch segments[0] {
+			switch strings.ToLower(segments[0]) {
 			case "id":
 				sse.Id = segments[1]
 			case "retry":
@@ -154,8 +190,13 @@ func SSEReader(response *http.Response, callback func(sse Sse) error) error {
 			case "data":
 				sse.Data += segments[1] // append to data
 			default: // unknown field or comment
-				if segments[0] == "" { // line starts with a colon
+				if strings.TrimSpace(segments[0]) == "" { // line starts with a colon
 					sse.Comment = segments[1]
+				} else { // extra fields
+					if sse.Extra == nil {
+						sse.Extra = make(map[string]string)
+					}
+					sse.Extra[segments[0]] = segments[1]
 				}
 			}
 		}
