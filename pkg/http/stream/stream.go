@@ -66,7 +66,7 @@ func Streaming(ctx kratosHttp.Context, contentType string, callback func(s *Stre
 }
 
 func (s *StreamWriter) sendHeader() {
-	if !s.sentHeader.CompareAndSwap(false, true) {
+	if !s.sentHeader.Swap(true) {
 		response := s.ctx.Response()
 		if s.options.contentType != "" {
 			response.Header().Set("Content-Type", s.options.contentType)
