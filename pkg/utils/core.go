@@ -15,14 +15,23 @@ func IsNil(v any) bool {
 }
 
 // IsZero 判断是否为零值
+// 能够判断map、slice、array类型是否没有元素
 func IsZero(v any) bool {
 	if v == nil {
 		return true
 	}
-	return reflect.ValueOf(v).IsZero()
+	valOf := reflect.ValueOf(v)
+	switch valOf.Kind() {
+	case reflect.Slice, reflect.Map, reflect.Array:
+		return valOf.Len() == 0
+	default:
+
+	}
+	return valOf.IsZero()
 }
 
 // IsZeroT 判断是否为零值，T必须是可比较的类型，性能比IsZero高
+// 但是无法判断map、slice、array类型是否没有元素
 func IsZeroT[T comparable](v T) bool {
 	var zero T
 	return v == zero
