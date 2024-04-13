@@ -20,16 +20,34 @@ type IOrm[T db.Tabler] interface {
 	//}, func(ctx context.Context) error {
 	//	   return repo.Create(ctx, &model)
 	//}...)
+	//	注意：在Transaction之前设置的Clauses、Select、Omit、Preloads、PreloadWithBuilder，在steps中是不生效的
 	Transaction(ctx context.Context, steps ...func(ctx context.Context) error) error
 
 	// GetDB 获取db 从上下文中取出db
 	GetDB(ctx context.Context) *db.DB
 
-	Clauses(cnds ...clause.Expression) IOrm[T]
-
+	IOrmOperation[T]
 	IOrmSetter[T]
 	IOrmGetter[T]
 	IOrmScanner
+}
+
+type IOrmOperation[T db.Tabler] interface {
+	// Clauses 条件：冲突解决、读写分离等
+	//   - 比如：Clauses(clause.Write).Find(ctx, cnd.Eq("id", 1))，表示强制使用主库查询
+	Clauses(cnds ...clause.Expression) IOrm[T]
+	// Preloads 不带条件的预加载关联，可以一次设置多个关联名
+	Preloads(preloads ...string) IOrm[T]
+	// PreloadWithBuilder 带条件的预加载，一次只能设置一个关联
+	PreloadWithBuilder(preload string, args ...any) IOrm[T]
+	// Select 指定查询/更新/创建字段。比如：Select("name", "age").Find(ctx, cnd.Eq("id", 1))，表示只查询name和age字段
+	//
+	//	FieldName：如果后面传递是Struct，使用Struct的字段名；如果后面传递是map，使用map的key
+	Select(query any, args ...any) IOrm[T]
+	// Omit 排除字段。比如：Omit("name", "age").Find(ctx, cnd.Eq("id", 1))，表示排除name和age字段
+	//
+	//	FieldName：如果后面传递是Struct，使用Struct的字段名；如果后面传递是map，使用map的key
+	Omit(columns ...string) IOrm[T]
 }
 
 type IOrmScanner interface {
@@ -48,10 +66,10 @@ type IOrmSetter[T db.Tabler] interface {
 	// T必须为指针类型
 	Save(ctx context.Context, models ...T) error
 	// Update 批量更新资源。如果没有主键，为了避免批量更新，会返回ErrMissingWhereClaus。
-	// 注意：如果不传递updatingColumns，【不会】更新零值字段，可以传递"*"更新所有字段
-	// example: repo.Update(ctx, &User{ID: 1, Name: "tom", Gender: "male"}, "*")
+	// 必须要指定更新的字段，否则只会更新非零值字段，如果要更新全部字段，可以设置Select("*")
+	// example: repo.Select("Name", "Gender").Update(ctx, &User{ID: 1, Name: "tom", Gender: "male"})
 	// T必须为指针类型
-	Update(ctx context.Context, model T, updatingColumns ...string) error
+	Update(ctx context.Context, models ...T) error
 	// UpdateColumns 更新资源的多个字段
 	UpdateColumns(ctx context.Context, query *cnd.QueryBuilder, attributes Columns) error
 	// UpdateColumn 更新资源的单个字段

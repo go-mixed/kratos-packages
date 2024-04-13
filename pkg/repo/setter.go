@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/samber/lo"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/clause"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/cnd"
@@ -16,7 +15,8 @@ import (
 // T必须为指针类型
 func (repo *Repository[T]) Create(ctx context.Context, models ...T) error {
 	// 每次INSERT 100条
-	return repo.GetDB(ctx).CreateInBatches(models, 100).Error
+	orm := repo.buildOrm(repo.GetDB(ctx), nil, nil)
+	return orm.CreateInBatches(models, 100).Error
 }
 
 // Save 保存资源，如果主键为空，则创建，否则更新。注意：零值【会】更新
@@ -25,8 +25,9 @@ func (repo *Repository[T]) Create(ctx context.Context, models ...T) error {
 // T必须为指针类型
 func (repo *Repository[T]) Save(ctx context.Context, models ...T) error {
 	// Save 不支持[]T，需要遍历
+	orm := repo.buildOrm(repo.GetDB(ctx), nil, nil)
 	for _, model := range models {
-		if err := repo.GetDB(ctx).Save(model).Error; err != nil {
+		if err := orm.Save(model).Error; err != nil {
 			return err
 		}
 	}
@@ -34,19 +35,18 @@ func (repo *Repository[T]) Save(ctx context.Context, models ...T) error {
 }
 
 // Update 批量更新资源。如果没有主键，为了避免批量更新，会返回ErrMissingWhereClaus。
-// 注意：如果不传递updatingColumns，【不会】更新零值字段，可以传递"*"更新所有字段
-// example: repo.Update(ctx, &User{ID: 1, Name: "tom", Gender: "male"}, "*")
+// 必须要指定更新的字段，否则只会更新非零值字段，如果要更新全部字段，可以设置Select("*")
+// example: repo.Select("Name", "Gender").Update(ctx, &User{ID: 1, Name: "tom", Gender: "male"})
 // T必须为指针类型
-func (repo *Repository[T]) Update(ctx context.Context, model T, updatingColumns ...string) error {
+func (repo *Repository[T]) Update(ctx context.Context, models ...T) error {
 	var err error
-	if len(updatingColumns) > 0 {
-		err = repo.GetDB(ctx).Model(model).Select(
-			updatingColumns[0], lo.Map(updatingColumns[1:], func(item string, _ int) any {
-				return item
-			})...,
-		).Updates(model).Error
-	} else {
-		err = repo.GetDB(ctx).Model(model).Updates(model).Error
+	// 注意：参数顺序必须为：db.Model(modelWithPk).Select().Omit().Updates(input)
+	// 此处modelWithPk即model，用于设置Where id = ?
+	for _, model := range models {
+		orm := repo.buildOrm(repo.GetDB(ctx), model, nil)
+		if err = orm.Updates(model).Error; err != nil {
+			return err
+		}
 	}
 
 	return err
@@ -62,15 +62,15 @@ func (repo *Repository[T]) Delete(ctx context.Context, models ...T) error {
 // DeleteWithBuilder 使用query删除资源
 // example: repo.Delete(ctx, db.ID(1))、或repo.Delete(ctx, cnd.Where("name", "tom"))
 func (repo *Repository[T]) DeleteWithBuilder(ctx context.Context, query *cnd.QueryBuilder) error {
-	orm := repo.GetDB(ctx).Model(repo.modelCreator())
-	var models []T
-	// 启用删除回写（PgSQL支持）
-	// Delete()第一个参数必须是model(s)，不然无法绑定Where条件，并且不能在Delete之前设置db.Model(...)
-	if err := query.WithDeleteReturning().Build(repo.GetDB(ctx)).Delete(&models).Error; err != nil {
+	// 注意：参数顺序必须为：db.Model(blankModel).Where(...).Delete()，不然无法绑定Where条件
+	orm := repo.buildOrm(repo.GetDB(ctx).Clauses(clause.Returning{}), repo.modelCreator(), query)
+	// 删除回写功能（PgSQL支持）
+	var returns []T
+	if err := orm.Delete(&returns).Error; err != nil {
 		return err
 	}
 	// 循环触发事件
-	for _, model := range models {
+	for _, model := range returns {
 		if err := repo.onModelEvent(ctx, orm, model, event.Deleted); err != nil {
 			return err
 		}
@@ -82,15 +82,14 @@ func (repo *Repository[T]) DeleteWithBuilder(ctx context.Context, query *cnd.Que
 // DeletePrimary 通过主键删除资源
 // example: repo.DeletePrimary(ctx, 1, 2, 3)
 func (repo *Repository[T]) DeletePrimary(ctx context.Context, primary ...any) error {
-	orm := repo.GetDB(ctx).Model(repo.modelCreator())
-	var models []T
-	// 启用删除回写（PgSQL支持）
-	// Delete() 第一个参数必须是model(s)，并且不能在Delete之前设置db.Model(...)
-	if err := repo.GetDB(ctx).Clauses(clause.Returning{}).Delete(&models, primary).Error; err != nil {
+	orm := repo.buildOrm(repo.GetDB(ctx).Clauses(clause.Returning{}), repo.modelCreator(), nil)
+	// 删除回写功能（PgSQL支持）
+	var returns []T
+	if err := orm.Delete(&returns, primary).Error; err != nil {
 		return err
 	}
 	// 循环触发事件
-	for _, model := range models {
+	for _, model := range returns {
 		if err := repo.onModelEvent(ctx, orm, model, event.Deleted); err != nil {
 			return err
 		}
@@ -100,9 +99,9 @@ func (repo *Repository[T]) DeletePrimary(ctx context.Context, primary ...any) er
 
 // UpdateColumns 更新资源多个字段
 func (repo *Repository[T]) UpdateColumns(ctx context.Context, query *cnd.QueryBuilder, attributes Columns) error {
-	orm := repo.GetDB(ctx).Model(repo.modelCreator())
-	// 和Delete不同的是，需要在Updates之前设置orm.Model(...)
-	if err := query.Build(orm).Updates(attributes).Error; err != nil {
+	// 注意：参数顺序必须为：db.Model(blankModel).Where(...).Update()，不然无法绑定Where条件
+	orm := repo.buildOrm(repo.GetDB(ctx), repo.modelCreator(), query)
+	if err := orm.Updates(attributes).Error; err != nil {
 		return errors.Wrapf(err, "repo UpdateColumns method of table \"%s\" failed", repo.modelCreator().TableName())
 	}
 
@@ -111,9 +110,9 @@ func (repo *Repository[T]) UpdateColumns(ctx context.Context, query *cnd.QueryBu
 
 // UpdateColumn 更新资源单个字段
 func (repo *Repository[T]) UpdateColumn(ctx context.Context, query *cnd.QueryBuilder, key string, value any) error {
-	orm := repo.GetDB(ctx).Model(repo.modelCreator())
-	// 和Delete不同的是，需要在Update之前设置orm.Model(...)
-	if err := query.Build(orm).Update(key, value).Error; err != nil {
+	// 注意：参数顺序必须为：db.Model(blankModel).Where(...).Update()，不然无法绑定Where条件
+	orm := repo.buildOrm(repo.GetDB(ctx), repo.modelCreator(), query)
+	if err := orm.Update(key, value).Error; err != nil {
 		return errors.Wrapf(err, "repo UpdateColumn method of table \"%s\" failed", repo.modelCreator().TableName())
 	}
 
@@ -122,7 +121,8 @@ func (repo *Repository[T]) UpdateColumn(ctx context.Context, query *cnd.QueryBui
 
 // Incr 递增某字段
 func (repo *Repository[T]) Incr(ctx context.Context, query *cnd.QueryBuilder, field string, val any) error {
-	if err := query.Build(repo.GetDB(ctx).Model(repo.modelCreator())).
+	orm := repo.buildOrm(repo.GetDB(ctx), repo.modelCreator(), query)
+	if err := orm.
 		Update(
 			field,
 			db.Expr(fmt.Sprintf("%s + ?", field), val),
@@ -134,7 +134,8 @@ func (repo *Repository[T]) Incr(ctx context.Context, query *cnd.QueryBuilder, fi
 
 // Decr 递减某字段
 func (repo *Repository[T]) Decr(ctx context.Context, query *cnd.QueryBuilder, field string, val any) error {
-	if err := query.Build(repo.GetDB(ctx).Model(repo.modelCreator())).
+	orm := repo.buildOrm(repo.GetDB(ctx), repo.modelCreator(), query)
+	if err := orm.
 		Update(
 			field,
 			db.Expr(fmt.Sprintf("%s - ?", field), val),

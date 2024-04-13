@@ -10,16 +10,6 @@ func ID(value any) *QueryBuilder {
 	return NewQueryBuilder().Eq("id", value)
 }
 
-// Columns 构造select columns便捷操作
-func Columns(columns ...string) *QueryBuilder {
-	return NewQueryBuilder().Columns(columns...)
-}
-
-// Select 构造select的便捷操作
-func Select(query any, args ...any) *QueryBuilder {
-	return NewQueryBuilder().Select(query, args...)
-}
-
 // Where 构造where条件的便捷操作
 func Where(query string, args ...any) *QueryBuilder {
 	return NewQueryBuilder().Where(query, args...)
@@ -173,14 +163,4 @@ func Paginate(page, limit int) *QueryBuilder {
 // WithTrash 软删除的数据也会被查询出来
 func WithTrash() *QueryBuilder {
 	return NewQueryBuilder().WithTrash()
-}
-
-// PreloadWithBuilder 带条件的预加载，只支持一个关联
-func PreloadWithBuilder(preload string, args ...any) *QueryBuilder {
-	return NewQueryBuilder().PreloadWithBuilder(preload, args...)
-}
-
-// Preloads 多个不带条件的预加载，支持多个关联
-func Preloads(preloads ...string) *QueryBuilder {
-	return NewQueryBuilder().Preloads(preloads...)
 }

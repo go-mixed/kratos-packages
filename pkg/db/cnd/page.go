@@ -1,7 +1,5 @@
 package cnd
 
-import "database/sql"
-
 type Paging struct {
 	Page  int   `json:"page"`  // 页码
 	Limit int   `json:"limit"` // 每页条数
@@ -27,29 +25,7 @@ func (p *Paging) TotalPage() int {
 	return totalPage
 }
 
-type ParamPair struct {
-	Query any   // 查询
-	Args  []any // 参数
-}
-
-type OrderByCol struct {
-	Column string
-	Asc    bool
-}
-
 type PageResult struct {
 	*Paging
 	Results any `json:"results"`
-}
-
-type CursorResult struct {
-	Results any    `json:"results"`
-	Cursor  string `json:"cursor"`
-}
-
-func SqlNullString(value string) sql.NullString {
-	return sql.NullString{
-		String: value,
-		Valid:  len(value) > 0,
-	}
 }

@@ -16,6 +16,8 @@ type (
 
 const (
 	CurrentTable = clause.CurrentTable
+	Associations = clause.Associations
+	PrimaryKey   = clause.PrimaryKey
 	Read         = dbresolver.Read
 	Write        = dbresolver.Write
 )

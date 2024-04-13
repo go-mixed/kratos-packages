@@ -9,8 +9,8 @@ import (
 
 // Count 查询资源数量，但是数据库错误了也返回0，则会让程序
 func (repo *Repository[T]) Count(ctx context.Context, query *cnd.QueryBuilder) (count int64, err error) {
-	orm := repo.GetDB(ctx).Model(repo.modelCreator())
-	err = query.Build(orm).Count(&count).Error
+	orm := repo.buildOrm(repo.GetDB(ctx), repo.modelCreator(), query)
+	err = orm.Count(&count).Error
 	return count, errors.Wrapf(err, "repo Count method of table \"%s\" failed", repo.modelCreator().TableName())
 }
 
@@ -18,9 +18,9 @@ func (repo *Repository[T]) Count(ctx context.Context, query *cnd.QueryBuilder) (
 func (repo *Repository[T]) First(ctx context.Context, query *cnd.QueryBuilder) (T, error) {
 	var model T
 	var nilModel T
-	orm := repo.GetDB(ctx).Model(repo.modelCreator())
+	orm := repo.buildOrm(repo.GetDB(ctx), repo.modelCreator(), query)
 
-	if err := query.Build(orm).First(&model).Error; err != nil {
+	if err := orm.First(&model).Error; err != nil {
 		if errors.Is(err, db.ErrRecordNotFound) {
 			return nilModel, nil
 		}
@@ -33,9 +33,9 @@ func (repo *Repository[T]) First(ctx context.Context, query *cnd.QueryBuilder) (
 func (repo *Repository[T]) FirstOrFail(ctx context.Context, query *cnd.QueryBuilder) (T, error) {
 	var model T
 	var nilModel T
-	orm := repo.GetDB(ctx).Model(repo.modelCreator())
+	orm := repo.buildOrm(repo.GetDB(ctx), repo.modelCreator(), query)
 
-	if err := query.Build(orm).First(&model).Error; err != nil {
+	if err := orm.First(&model).Error; err != nil {
 		if errors.Is(err, db.ErrRecordNotFound) {
 			return nilModel, errors.Wrapf(err, "the record of repo First method of table \"%s\" is not found", repo.modelCreator().TableName())
 		}
@@ -47,9 +47,9 @@ func (repo *Repository[T]) FirstOrFail(ctx context.Context, query *cnd.QueryBuil
 // Get 查询获取资源集合，如果没有找到【不会】返回ErrRecordNotFound
 func (repo *Repository[T]) Get(ctx context.Context, query *cnd.QueryBuilder) ([]T, error) {
 	var models []T
-	orm := repo.GetDB(ctx).Model(repo.modelCreator())
+	orm := repo.buildOrm(repo.GetDB(ctx), repo.modelCreator(), query)
 
-	if err := query.Build(orm).Find(&models).Error; err != nil {
+	if err := orm.Find(&models).Error; err != nil {
 		if errors.Is(err, db.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -59,10 +59,10 @@ func (repo *Repository[T]) Get(ctx context.Context, query *cnd.QueryBuilder) ([]
 }
 
 // Pluck 获取资源单个字段集合，如果没有找到【不会】返回ErrRecordNotFound
-func (repo *Repository[T]) Pluck(ctx context.Context, queries *cnd.QueryBuilder, field string, scanner any) error {
-	orm := repo.GetDB(ctx).Model(repo.modelCreator())
+func (repo *Repository[T]) Pluck(ctx context.Context, query *cnd.QueryBuilder, field string, scanner any) error {
+	orm := repo.buildOrm(repo.GetDB(ctx), repo.modelCreator(), query)
 
-	if err := queries.Build(orm).Pluck(field, scanner).Error; err != nil && !errors.Is(err, db.ErrRecordNotFound) {
+	if err := orm.Pluck(field, scanner).Error; err != nil && !errors.Is(err, db.ErrRecordNotFound) {
 		return errors.Wrapf(err, "repo Pluck method of table \"%s\" failed", repo.modelCreator().TableName())
 	}
 
@@ -75,11 +75,9 @@ func (repo *Repository[T]) Paginate(ctx context.Context, query *cnd.QueryBuilder
 	var err error
 	var models []T
 
-	orm := repo.GetDB(ctx).Model(repo.modelCreator())
+	orm := repo.buildOrm(repo.GetDB(ctx), repo.modelCreator(), query)
 
-	cond := query.Build(orm)
-
-	if err = cond.Count(&total).Error; err != nil {
+	if err = orm.Count(&total).Error; err != nil {
 		if errors.Is(err, db.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -88,7 +86,7 @@ func (repo *Repository[T]) Paginate(ctx context.Context, query *cnd.QueryBuilder
 
 	pagination.Total = total
 
-	if err = cond.Limit(pagination.Limit).Offset(pagination.GetOffset()).Find(&models).Error; err != nil {
+	if err = orm.Limit(pagination.Limit).Offset(pagination.GetOffset()).Find(&models).Error; err != nil {
 		if errors.Is(err, db.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -103,7 +101,9 @@ func (repo *Repository[T]) Find(ctx context.Context, id any) (T, error) {
 	var model T
 	var nilModel T
 
-	if err := repo.GetDB(ctx).Model(repo.modelCreator()).Where("id = ?", id).First(&model).Error; err != nil {
+	orm := repo.buildOrm(repo.GetDB(ctx), repo.modelCreator(), cnd.ID(id))
+
+	if err := orm.First(&model).Error; err != nil {
 		if errors.Is(err, db.ErrRecordNotFound) {
 			return nilModel, nil
 		}
@@ -117,7 +117,8 @@ func (repo *Repository[T]) FindOrFail(ctx context.Context, id any) (T, error) {
 	var model T
 	var nilModel T
 
-	if err := repo.GetDB(ctx).Model(repo.modelCreator()).Where("id = ?", id).First(&model).Error; err != nil {
+	orm := repo.buildOrm(repo.GetDB(ctx), repo.modelCreator(), cnd.ID(id))
+	if err := orm.First(&model).Error; err != nil {
 		if errors.Is(err, db.ErrRecordNotFound) {
 			return nilModel, errors.Wrapf(err, "table [%s:%d] is not found", repo.modelCreator().TableName(), id)
 		}
@@ -129,7 +130,9 @@ func (repo *Repository[T]) FindOrFail(ctx context.Context, id any) (T, error) {
 // FindMany 查询获取ids的资源集合
 func (repo *Repository[T]) FindMany(ctx context.Context, ids []any) ([]T, error) {
 	var models []T
-	if err := repo.GetDB(ctx).Model(repo.modelCreator()).Where("id in ?", ids).Find(&models).Error; err != nil {
+
+	orm := repo.buildOrm(repo.GetDB(ctx), repo.modelCreator(), cnd.InID(ids))
+	if err := orm.Find(&models).Error; err != nil {
 		if errors.Is(err, db.ErrRecordNotFound) {
 			return nil, nil
 		}

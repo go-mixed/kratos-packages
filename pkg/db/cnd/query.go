@@ -1,7 +1,7 @@
 package cnd
 
 import (
-	"github.com/samber/lo"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/clause"
 	"gorm.io/gorm"
 	"time"
@@ -9,48 +9,28 @@ import (
 
 type QueryBuilder struct {
 	columns       []string
-	and, or       []ParamPair  // 参数
-	orders        []OrderByCol // 排序
-	paging        *Paging      // 分页
+	and, or       []db.ParamPair  // 参数
+	orders        []db.OrderByCol // 排序
+	paging        *Paging         // 分页
 	limit, offset *int
 	locker        *clause.Locking
-	selector      *ParamPair
 
-	preloads                   map[string][]any
-	withTrash                  bool
-	withDeleteReturning        bool
-	deleteReturningColumnNames []string
+	withTrash bool
 }
 
 func NewQueryBuilder() *QueryBuilder {
-	return &QueryBuilder{
-		preloads: map[string][]any{},
-	}
-}
-
-// Columns 只获取这些字段
-func (q *QueryBuilder) Columns(columns ...string) *QueryBuilder {
-	if len(columns) > 0 {
-		q.columns = append(q.columns, columns...)
-	}
-	return q
-}
-
-// Select .
-func (q *QueryBuilder) Select(query any, args ...any) *QueryBuilder {
-	q.selector = &ParamPair{Query: query, Args: args}
-	return q
+	return &QueryBuilder{}
 }
 
 // Where 构建where查询条件
 func (q *QueryBuilder) Where(query string, args ...any) *QueryBuilder {
-	q.and = append(q.and, ParamPair{Query: query, Args: args})
+	q.and = append(q.and, db.ParamPair{Query: query, Args: args})
 	return q
 }
 
 // Or 构建or查询条件
 func (q *QueryBuilder) Or(query string, args ...any) *QueryBuilder {
-	q.or = append(q.or, ParamPair{Query: query, Args: args})
+	q.or = append(q.or, db.ParamPair{Query: query, Args: args})
 	return q
 }
 
@@ -146,7 +126,7 @@ func (q *QueryBuilder) NeqDate(column string, t time.Time) *QueryBuilder {
 
 // Order .
 func (q *QueryBuilder) Order(column string, ascend bool) *QueryBuilder {
-	q.orders = append(q.orders, OrderByCol{Column: column, Asc: ascend})
+	q.orders = append(q.orders, db.OrderByCol{Column: column, Asc: ascend})
 	return q
 }
 
@@ -243,30 +223,9 @@ func (q *QueryBuilder) Paginate(page, limit int) *QueryBuilder {
 	return q
 }
 
-// PreloadWithBuilder 带条件的预加载，只支持一个关联
-func (q *QueryBuilder) PreloadWithBuilder(preload string, args ...any) *QueryBuilder {
-	q.preloads[preload] = args
-	return q
-}
-
-// Preloads 不带条件的预加载，支持多个关联
-func (q *QueryBuilder) Preloads(preloads ...string) *QueryBuilder {
-	for _, preload := range preloads {
-		q.preloads[preload] = nil
-	}
-	return q
-}
-
 // WithTrash 查询包括软删除的记录 db = db.Unscoped()
 func (q *QueryBuilder) WithTrash() *QueryBuilder {
 	q.withTrash = true
-	return q
-}
-
-// WithDeleteReturning 启用删除回写，并设置需要返回的字段名（不设置表示返回全部字段） db = db.Clause(clause.Returning{Columns: ...})
-func (q *QueryBuilder) WithDeleteReturning(columnNames ...string) *QueryBuilder {
-	q.withDeleteReturning = true
-	q.deleteReturningColumnNames = columnNames
 	return q
 }
 
@@ -276,22 +235,6 @@ func (q *QueryBuilder) Build(db *gorm.DB) *gorm.DB {
 
 	if q.withTrash {
 		ret = ret.Unscoped()
-	}
-
-	if q.withDeleteReturning {
-		ret = ret.Clauses(clause.Returning{
-			Columns: lo.Map(q.deleteReturningColumnNames, func(name string, _ int) clause.Column {
-				return clause.Column{Name: name}
-			}),
-		})
-	}
-
-	for preload, args := range q.preloads {
-		ret = ret.Preload(preload, args...)
-	}
-
-	if len(q.columns) > 0 {
-		ret = ret.Select(q.columns)
 	}
 
 	if len(q.and) > 0 {
@@ -330,10 +273,6 @@ func (q *QueryBuilder) Build(db *gorm.DB) *gorm.DB {
 
 	if q.locker != nil {
 		ret = ret.Clauses(*q.locker)
-	}
-
-	if q.selector != nil {
-		ret = ret.Select(q.selector.Query, q.selector.Args...)
 	}
 
 	return ret
