@@ -23,3 +23,5 @@ func SqlNullString(value string) sql.NullString {
 		Valid:  len(value) > 0,
 	}
 }
+
+type Columns = map[string]any
