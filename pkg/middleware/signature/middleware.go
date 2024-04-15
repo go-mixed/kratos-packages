@@ -13,7 +13,7 @@ import (
 type signatureMiddlewareFunc func(
 	ctx context.Context,
 	transporter transport.Transporter,
-	request sign.IProtobufSignature) (thirdPartyApp auth.IThirdParty, options sign.Options, err error)
+	request sign.IProtobufSignature) (thirdPartyApp auth.IThirdParty, options []sign.Option, err error)
 
 func NewSignatureMiddleware(signatureFunc signatureMiddlewareFunc, logger log.Logger) middleware.Middleware {
 	return func(nextHandler middleware.Handler) middleware.Handler {
@@ -25,18 +25,20 @@ func NewSignatureMiddleware(signatureFunc signatureMiddlewareFunc, logger log.Lo
 				return nil, auth.ErrWrongContext
 			}
 			if request, ok := req.(sign.IProtobufSignature); ok {
-				thirdPartyApp, options, err := signatureFunc(ctx, transporter, request)
+				thirdPartyApp, opts, err := signatureFunc(ctx, transporter, request)
 				if err != nil {
 					return nil, err
 				}
 
 				// 传递第三方app信息
 				ctx = sign.NewContext(ctx, thirdPartyApp)
+				// 将日志传递给签名中间件
+				opts = append(opts, sign.WithLogger(l))
 
-				if ok, err = sign.CheckProtobufSignature(
+				if err = sign.CheckProtobufSignature(
 					request,
 					thirdPartyApp.GetAppSecret(),
-					options.WithLogger(l),
+					opts...,
 				); ok {
 					return nextHandler(ctx, req)
 				} else if err != nil {

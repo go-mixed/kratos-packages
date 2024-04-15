@@ -67,7 +67,7 @@ func GetFileFromRequest(r *http.Request, fieldName string, maxSize int64) (*uplo
 	if strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
 		// 解析上传文件, 最大maxSize
 		if err := r.ParseMultipartForm(maxSize); err != nil {
-			return nil, errors.New("请正确使用multipart/form-data格式上传文件")
+			return nil, fmt.Errorf("请正确使用multipart/form-data格式上传文件，error: %w", err)
 		}
 
 		file, handler, err := r.FormFile(fieldName)
@@ -84,7 +84,7 @@ func GetFileFromRequest(r *http.Request, fieldName string, maxSize int64) (*uplo
 	}
 
 	if r.ContentLength > maxSize {
-		return nil, fmt.Errorf("上传文件请不要超过%.2fMB", float64(maxSize)/1024./1024.)
+		return nil, fmt.Errorf("上传的文件请不要超过%.2fMB", float64(maxSize)/1024./1024.)
 	}
 
 	// Body as file

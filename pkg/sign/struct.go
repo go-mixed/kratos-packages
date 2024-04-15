@@ -1,8 +1,6 @@
 package sign
 
 import (
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
-	"strings"
 	"time"
 )
 
@@ -95,32 +93,13 @@ func (s *BaseSignature) GetSign() string {
 	return s.Sign
 }
 
-// BuildSignature 传入一个 BaseSignature 的子struct，生成签名并返回
-//
-//	obj: BaseSignature的子struct
-//	appKey: 应用的appKey
-//	appSecret: 应用的appSecret
-//	signedFields: 参与签名的字段，如果为空，所有字段都参与签名。注意：字段名需要是Struct中字段tag名，即json:"xxx"中的xxx
-//	withBlank: 是否包含空白字段，如果为false，值为空白字符串的不参与签名
-func (s *BaseSignature) BuildSignature(obj iStructSignature, appKey, appSecret string, options Options) {
-	obj.SetAppKey(appKey)
-	obj.SetTimestamp(time.Now())
-
-	values := utils.AnyToUrlValues(obj, "json")
-	delete(values, "sign")
-	if len(options.signedFields) > 0 {
-		options.signedFields = append(options.signedFields, strings.Split(defaultSignedFields, ",")...)
-	}
-
-	obj.SetSign(CalcSignature(appSecret, values, options))
-}
-
 // CheckSignature 传入一个 BaseSignature 的子struct，检查签名是否正确
 //
 //	obj: BaseSignature的子struct
 //	appSecret: 应用的appSecret
-//	signedFields: 参与签名的字段，如果为空，所有字段都参与签名。注意：字段名需要是Struct中字段tag名，即json:"xxx"中的xxx
-//	withBlank: 是否包含空白字段，如果为false，值为空白字符串的不参与签名
-func (s *BaseSignature) CheckSignature(obj iStructSignature, appSecret string, options Options) (bool, error) {
-	return CheckSignature(obj, appSecret, options)
+//	opts:
+//	- WitSignedFields: 参与签名的字段，如果为空，所有字段都参与签名。注意：字段名需要是Struct中字段tag名，即json:"xxx"中的xxx
+//	- WithBlank: 是否包含空白字段，如果为false，值为空白字符串的不参与签名
+func (s *BaseSignature) CheckSignature(obj iStructSignature, appSecret string, opts Option) error {
+	return CheckSignature(obj, appSecret, opts)
 }
