@@ -151,13 +151,15 @@ func (s *Sse) String() string {
 }
 
 var separatorRegex = regexp.MustCompile(": ?")
+var ErrSseContentType = errors.New("unexpected content type")
+var ErrSseStatus = errors.New("unexpected status code")
 
 // SSEReader reads Server-Sent Events from an HTTP response and calls the callback for each event.
 func SSEReader(response *http.Response, callback func(sse Sse) error) error {
 	if response.StatusCode != 200 {
-		return errors.New("invalid status code: " + response.Status)
+		return ErrSseStatus
 	} else if contentType := response.Header.Get("Content-Type"); !strings.Contains(contentType, "text/event-stream") {
-		return errors.New("unexpected content type: " + contentType)
+		return ErrSseContentType
 	}
 
 	buf := bufio.NewReader(response.Body)
