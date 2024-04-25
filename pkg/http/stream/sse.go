@@ -93,7 +93,7 @@ func (s *sseBuilder) Build() Sse {
 		Data:    s.data,
 		Retry:   s.retry,
 		Comment: s.comment,
-		Extra:   make(map[string]string),
+		Extra:   s.extra,
 	}
 }
 
