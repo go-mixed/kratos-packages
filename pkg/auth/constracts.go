@@ -2,7 +2,6 @@ package auth
 
 import (
 	"github.com/go-kratos/kratos/v2/errors"
-	"net/http"
 )
 
 const (
@@ -25,7 +24,7 @@ const (
 var (
 	ErrMissingToken        = errors.Unauthorized(UnauthorizedReason, "token is missing")
 	ErrWrongContext        = errors.Unauthorized(UnauthorizedReason, "Wrong context for middleware")
-	ErrTokenExpired        = errors.New(http.StatusNotAcceptable, ExpiredReason, "token is expired")
+	ErrTokenExpired        = errors.New(419, ExpiredReason, "token is expired")
 	ErrTokenInvalid        = errors.Unauthorized(UnauthorizedReason, "token is invalid or disabled")
 	ErrGuardNotFound       = errors.Unauthorized(UnauthorizedReason, "guard not found")
 	ErrGuardNotMatch       = errors.Forbidden(ForbiddenReason, "the authorization guard not match the request guard")
