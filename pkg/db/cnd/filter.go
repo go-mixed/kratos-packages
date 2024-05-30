@@ -22,7 +22,7 @@ func newStdOperator(operator string) Operator {
 
 func newLikeOperator(operator string) Operator {
 	return func(query *QueryBuilder, col string, val any) error {
-		query.Where(fmt.Sprintf("%s %s ?", operator, col), fmt.Sprintf("%%%s%%", val))
+		query.Where(fmt.Sprintf("%s %s ?", col, operator), fmt.Sprintf("%%%s%%", val))
 		return nil
 	}
 }
