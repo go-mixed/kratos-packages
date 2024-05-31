@@ -248,10 +248,22 @@ func ParsePagination(request utils.IProtobuf, pageName, pageSizeName string) *db
 			name = segments[0]
 		}
 
-		if name == pageName {
-			page = utils.ToInt64(vOf.Field(i).Interface())
-		} else if name == pageSizeName {
-			pageSize = utils.ToInt64(vOf.Field(i).Interface())
+		if name == pageName || name == pageSizeName {
+			valOf := vOf.Field(i)
+			// 兼容 int 或 *int (optional int32)
+			if valOf.Kind() == reflect.Ptr {
+				if valOf.IsNil() { // 空指针，则跳过
+					continue
+				}
+				// 获取指针指向的值
+				valOf = valOf.Elem()
+			}
+
+			if name == pageName {
+				page = utils.ToInt64(valOf.Interface())
+			} else if name == pageSizeName {
+				pageSize = utils.ToInt64(valOf.Interface())
+			}
 		}
 	}
 
