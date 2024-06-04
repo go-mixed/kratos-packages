@@ -67,6 +67,9 @@ func ToString(v any, otherTypeAsJson bool) string {
 
 // ToInt64 将任意类型转为int64
 func ToInt64(val any) int64 {
+	if val == nil {
+		return 0
+	}
 	switch v := val.(type) {
 	case int:
 		return int64(v)
@@ -106,6 +109,8 @@ func ToInt64(val any) int64 {
 		case reflect.String:
 			i, _ := strconv.ParseInt(reflect.ValueOf(v).String(), 10, 64)
 			return i
+		case reflect.Ptr:
+			return ToInt64(reflect.ValueOf(v).Elem().Interface())
 		default:
 			return 0
 		}

@@ -39,11 +39,11 @@ func NewSignatureMiddleware(signatureFunc signatureMiddlewareFunc, logger log.Lo
 					request,
 					thirdPartyApp.GetAppSecret(),
 					opts...,
-				); ok {
-					return nextHandler(ctx, req)
-				} else if err != nil {
+				); err != nil {
 					return nil, err
 				}
+
+				return nextHandler(ctx, req)
 			}
 			return nil, errors.BadRequest("signature", "Please input sign(string)、timestamp(int)、app_key(string)")
 		}
