@@ -210,3 +210,31 @@ func SSEReader(response *http.Response, callback func(sse Sse) error) error {
 
 	return nil
 }
+
+// LineReader 不规范的流输出，使用\n做的分隔符
+func LineReader(response *http.Response, callback func(sse Sse) error) error {
+	if response.StatusCode != 200 {
+		return ErrSseStatus
+	}
+
+	buf := bufio.NewReader(response.Body)
+	var sse Sse
+	for {
+		line, err := buf.ReadString('\n')
+
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+
+		if len(line) > 0 {
+			line = line[:len(line)-1] // remove trailing \n
+		}
+		sse.Data = line
+		if err = callback(sse); err != nil {
+			return err
+		}
+	}
+	return nil
+}
