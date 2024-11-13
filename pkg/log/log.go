@@ -4,39 +4,13 @@ import (
 	"context"
 	"github.com/go-kratos/kratos/contrib/log/zap/v2"
 	stdLog "github.com/go-kratos/kratos/v2/log"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/config"
+	"time"
+
 	//"github.com/go-kratos/kratos/v2/middleware/tracing"
 	nativeZap "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
-
-const (
-	LevelDebug = stdLog.LevelDebug
-	LevelInfo  = stdLog.LevelInfo
-	LevelWarn  = stdLog.LevelWarn
-	LevelError = stdLog.LevelError
-	LevelFatal = stdLog.LevelFatal
-)
-
-type (
-	Valuer = stdLog.Valuer
-	Level  = stdLog.Level
-)
-
-type Logger interface {
-	// AddFilter 添加过滤器。修改的是当前的logger，在log.NewModuleHelper中设置时，请Clone后使用。
-	AddFilter(option stdLog.FilterOption) Logger
-	// AddValuer 添加Key-Valuer。修改的是当前的logger，在log.NewModuleHelper中设置时，请Clone后使用。
-	AddValuer(keyVals ...any) Logger
-	// AddStack 增加stack。修改的是当前的logger，在log.NewModuleHelper中设置时，请Clone后使用。
-	AddStack(skip int) Logger
-	ZapCore() zapcore.Core
-	Build() stdLog.Logger
-	SetLevel(level string) Logger
-	// Clone 克隆一个新的logger，后续使用需要先Build
-	Clone() Logger
-
-	stdLog.Logger
-}
 
 // zapLogger 日志扩展实例
 type zapLogger struct {
@@ -53,14 +27,53 @@ type zapLogger struct {
 var DefaultLogger Logger = (*zapLogger)(nil)
 
 // Default 实例化默认日志
-func Default(baseCtx context.Context, opts ...ZapCoreOption) Logger {
+func Default(baseCtx context.Context, opts ...zapSimpleOption) Logger {
 	kvs := []any{"ts", DefaultTimestamp /*, "call", SimpleCaller(7)*/}
-	DefaultLogger = New(baseCtx, opts...).AddValuer(kvs...)
+	DefaultLogger = NewSimple(baseCtx, opts...).AddValuer(kvs...)
 	return DefaultLogger
 }
 
-// New 实例化日志，默认带有trace.id和span.id
-func New(baseCtx context.Context, opts ...ZapCoreOption) Logger {
+// NewFromConfig 从完整的配置创建日志实例
+func NewFromConfig(baseCtx context.Context, configure config.Configure) Logger {
+	var logConf logConfig
+	// 映射配置
+	if err := configure.Value("logger").Scan(&logConf); err != nil {
+		panic(err)
+	}
+
+	for _, writer := range logConf.Writer {
+		// 设置levelValue
+		if writer.Level == "" {
+			writer.levelValue = LevelDebug
+		} else {
+			writer.levelValue = stdLog.ParseLevel(writer.Level)
+		}
+		// 设置时间格式
+		if writer.TimeFormat == "" {
+			writer.TimeFormat = time.RFC3339
+		}
+	}
+
+	return &zapLogger{
+		nativeZapCore: buildZapCore(logConf),
+		stack:         3,
+		valuers:       []any{
+			//"trace.id", tracing.TraceID(),
+			//"span.id", tracing.SpanID(),
+		},
+		baseContext: baseCtx,
+	}
+}
+
+// NewSimple 实例化简单的日志，默认带有trace.id和span.id
+func NewSimple(baseCtx context.Context, opts ...zapSimpleOption) Logger {
+	conf := &simpleLogConf{
+		level: zapcore.DebugLevel,
+	}
+
+	for _, opt := range opts {
+		opt(conf)
+	}
 	/**
 	堆栈：
 	zap.(*Logger).Log (zap.go:31) github.com/go-kratos/kratos/contrib/log/zap/v2
@@ -69,7 +82,7 @@ func New(baseCtx context.Context, opts ...ZapCoreOption) Logger {
 	log.(*Helper).Info (helper.go:120) kratos-packages/pkg/log
 	*/
 	return &zapLogger{
-		nativeZapCore: buildZapCore(opts...),
+		nativeZapCore: buildSimpleZapCore(*conf),
 		stack:         3,
 		valuers:       []any{
 			//"trace.id", tracing.TraceID(),

@@ -54,7 +54,7 @@ func WithSource(sources ...config.Source) Option {
 	}
 }
 
-func WithOption(opts ...config.Option) Option {
+func WithNativeOption(opts ...config.Option) Option {
 	return func(w *configure) {
 		w.nativeOpts = append(w.nativeOpts, opts...)
 	}

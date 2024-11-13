@@ -66,16 +66,16 @@ type configure struct {
 func NewFromDriver(driver, dir string, opts ...config.Option) Configure {
 	switch strings.ToLower(driver) {
 	case DriverApollo:
-		return New(WithDriver(DriverApollo), WithOption(opts...))
+		return New(WithDriver(DriverApollo), WithNativeOption(opts...))
 	case DriverFile:
-		return New(WithDriver(DriverFile), WithPath(dir), WithOption(opts...))
+		return New(WithDriver(DriverFile), WithPath(dir), WithNativeOption(opts...))
 	default:
 		panic("暂不支持此类型的配置驱动")
 	}
 }
 
 func Default() Configure {
-	return New(WithOption(config.WithSource(env.NewSource("KRATOS_"))))
+	return New(WithNativeOption(config.WithSource(env.NewSource("KRATOS_"))))
 }
 
 func New(opts ...Option) Configure {
@@ -88,7 +88,7 @@ func New(opts ...Option) Configure {
 			Namespace: os.Getenv("APOLLO_NAMESPACE"),
 			Secret:    os.Getenv("APOLLO_SECRET"),
 		},
-		paths: strings.Split(os.Getenv("CONF_DIR"), ";"),
+		paths: strings.Split(os.Getenv("CONF_PATH"), ";"),
 	}
 
 	if c.driver == "" {

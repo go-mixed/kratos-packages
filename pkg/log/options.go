@@ -1,8 +1,6 @@
 package log
 
 import (
-	"io"
-
 	stdLog "github.com/go-kratos/kratos/v2/log"
 	"go.uber.org/zap/zapcore"
 )
@@ -18,98 +16,81 @@ const (
 	DefaultRotationMaxBackups = 3
 )
 
-type RotateOption struct {
-	dir              string
-	maxSize          int
-	maxAge           int
-	maxBackups       int
-	localTime        bool
-	compress         bool
-	multiLevelOutput bool
-}
-
-type ZapCoreOption func(l *ZLog)
+type zapSimpleOption func(l *simpleLogConf)
 
 // WithRotate 是否开启日志切割
-func WithRotate(rotation bool) ZapCoreOption {
-	return func(l *ZLog) {
-		l.rotation = rotation
+func WithRotate(rotation bool) zapSimpleOption {
+	return func(l *simpleLogConf) {
+		l.rotateConfig.EnableRotate = rotation
 	}
 }
 
 // WithMultiLevelOutput 是否开启多等级日志输出指定文件
-func WithMultiLevelOutput(multi bool) ZapCoreOption {
-	return func(l *ZLog) {
-		l.rotateOpts.multiLevelOutput = multi
+func WithMultiLevelOutput(multi bool) zapSimpleOption {
+	return func(l *simpleLogConf) {
+		l.multiLevelOutput = multi
 	}
 }
 
 // WithRotateLocalTime 日志切割是否使用本地时间
-func WithRotateLocalTime() ZapCoreOption {
-	return func(l *ZLog) {
-		l.rotateOpts.localTime = true
+func WithRotateLocalTime() zapSimpleOption {
+	return func(l *simpleLogConf) {
+		l.rotateConfig.LocalTime = true
 	}
 }
 
 // WithRotateCompress 切割日志是否压缩
-func WithRotateCompress() ZapCoreOption {
-	return func(l *ZLog) {
-		l.rotateOpts.compress = true
+func WithRotateCompress() zapSimpleOption {
+	return func(l *simpleLogConf) {
+		l.rotateConfig.Compress = true
 	}
 }
 
 // WithRotateMaxSize 最大切割日志大小
-func WithRotateMaxSize(maxSize int) ZapCoreOption {
-	return func(l *ZLog) {
-		l.rotateOpts.maxSize = maxSize
+func WithRotateMaxSize(maxSize int) zapSimpleOption {
+	return func(l *simpleLogConf) {
+		l.rotateConfig.MaxSize = maxSize
 	}
 }
 
 // WithRotateMaxAge 切割日志最大生命周期
-func WithRotateMaxAge(maxAge int) ZapCoreOption {
-	return func(l *ZLog) {
-		l.rotateOpts.maxAge = maxAge
+func WithRotateMaxAge(maxAge int) zapSimpleOption {
+	return func(l *simpleLogConf) {
+		l.rotateConfig.MaxAge = maxAge
 	}
 }
 
 // WithRotateMaxBackups 切割日志最大备份数量
-func WithRotateMaxBackups(backups int) ZapCoreOption {
-	return func(l *ZLog) {
-		l.rotateOpts.maxBackups = backups
+func WithRotateMaxBackups(backups int) zapSimpleOption {
+	return func(l *simpleLogConf) {
+		l.rotateConfig.MaxBackups = backups
 	}
 }
 
 // WithRotateDir 定义切割日志存放目录
-func WithRotateDir(dirPath string) ZapCoreOption {
-	return func(l *ZLog) {
-		l.rotateOpts.dir = dirPath
+func WithRotateDir(dirPath string) zapSimpleOption {
+	return func(l *simpleLogConf) {
+		l.dir = dirPath
 	}
 }
 
 // WithColor 是否开启彩色控制台输出
-func WithColor(color bool) ZapCoreOption {
-	return func(l *ZLog) {
+func WithColor(color bool) zapSimpleOption {
+	return func(l *simpleLogConf) {
 		l.color = color
 	}
 }
 
-// WithWriter 添加自定义文件写入
-func WithWriter(w io.Writer) ZapCoreOption {
-	return func(l *ZLog) {
-		l.writers = append(l.writers, w)
-	}
-}
-
 // WithProduction 是否开启生产, 开启后日志使用json输出
-func WithProduction(production bool) ZapCoreOption {
-	return func(l *ZLog) {
+func WithProduction(production bool) zapSimpleOption {
+	return func(l *simpleLogConf) {
 		l.production = production
 	}
 }
 
 // WithLevel 设置日志级别
-func WithLevel(level string) ZapCoreOption {
-	return func(l *ZLog) {
+func WithLevel(level string) zapSimpleOption {
+	return func(l *simpleLogConf) {
 		stdLevel := stdLog.ParseLevel(level)
 		switch stdLevel {
 		case stdLog.LevelDebug:
