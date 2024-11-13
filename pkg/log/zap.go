@@ -141,14 +141,18 @@ func buildSimpleZapCore(conf simpleLogConf) zapcore.Core {
 
 	syncers := []zapcore.WriteSyncer{
 		zapcore.AddSync(os.Stdout),
-		buildFieSyncer(fileConfig{filepath.Join(conf.dir, "logger.log"), conf.rotateConfig.Rotate, conf.rotateConfig.MaxSize, conf.rotateConfig.MaxAge, conf.rotateConfig.MaxBackups, conf.rotateConfig.LocalTime, conf.rotateConfig.Compress}),
+	}
+
+	// 如果设置了日志目录，则添加文件的syncer
+	if conf.dir != "" {
+		syncers = append(syncers, buildFieSyncer(fileConfig{filepath.Join(conf.dir, "logger.log"), conf.rotateConfig.Rotate, conf.rotateConfig.MaxSize, conf.rotateConfig.MaxAge, conf.rotateConfig.MaxBackups, conf.rotateConfig.LocalTime, conf.rotateConfig.Compress}))
 	}
 
 	coreTee := []zapcore.Core{
 		zapcore.NewCore(encoder, zapcore.NewMultiWriteSyncer(syncers...), atomic),
 	}
 
-	if conf.multiLevelOutput {
+	if conf.dir != "" && conf.multiLevelOutput {
 		infoLevel := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 			return lvl < zapcore.WarnLevel && lvl >= atomic.Level()
 		})
