@@ -21,7 +21,7 @@ type zapSimpleOption func(l *simpleLogConf)
 // WithRotate 是否开启日志切割
 func WithRotate(rotation bool) zapSimpleOption {
 	return func(l *simpleLogConf) {
-		l.rotateConfig.EnableRotate = rotation
+		l.rotateConfig.Rotate = rotation
 	}
 }
 

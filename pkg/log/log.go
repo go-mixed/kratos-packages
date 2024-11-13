@@ -41,7 +41,7 @@ func NewFromConfig(baseCtx context.Context, configure config.Configure) Logger {
 		panic(err)
 	}
 
-	for _, writer := range logConf.Writer {
+	for _, writer := range logConf.Writers {
 		// 设置levelValue
 		if writer.Level == "" {
 			writer.levelValue = LevelDebug
@@ -56,7 +56,7 @@ func NewFromConfig(baseCtx context.Context, configure config.Configure) Logger {
 
 	return &zapLogger{
 		nativeZapCore: buildZapCore(logConf),
-		stack:         3,
+		stack:         4,
 		valuers:       []any{
 			//"trace.id", tracing.TraceID(),
 			//"span.id", tracing.SpanID(),
@@ -76,14 +76,15 @@ func NewSimple(baseCtx context.Context, opts ...zapSimpleOption) Logger {
 	}
 	/**
 	堆栈：
-	zap.(*Logger).Log (zap.go:31) github.com/go-kratos/kratos/contrib/log/zap/v2
+	zap.(*Logger).Log (zap.go:38) github.com/go-kratos/kratos/contrib/log/zap/v2
+	log.(*Filter).Log (filter.go:93) github.com/go-kratos/kratos/v2/log
+	... filters ... // 自定义的filters
 	log.(*logger).Log (log.go:30) github.com/go-kratos/kratos/v2/log
-	log.(*Filter).Log (filter.go:95) github.com/go-kratos/kratos/v2/log   <--- 这行在下面的filters中有加上
 	log.(*Helper).Info (helper.go:120) kratos-packages/pkg/log
 	*/
 	return &zapLogger{
 		nativeZapCore: buildSimpleZapCore(*conf),
-		stack:         3,
+		stack:         4,
 		valuers:       []any{
 			//"trace.id", tracing.TraceID(),
 			//"span.id", tracing.SpanID(),

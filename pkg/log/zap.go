@@ -72,7 +72,7 @@ func buildFieSyncer(config fileConfig) zapcore.WriteSyncer {
 	_ = os.MkdirAll(filepath.Dir(config.Path), os.ModePerm)
 
 	// 不启用日志轮转，则直接输出到文件
-	if !config.EnableRotate {
+	if !config.Rotate {
 		fs, err := os.OpenFile(config.Path, os.O_RDWR|os.O_CREATE|os.O_APPEND, os.ModePerm)
 		if err != nil {
 			println("write log file failed: " + err.Error())
@@ -141,7 +141,7 @@ func buildSimpleZapCore(conf simpleLogConf) zapcore.Core {
 
 	syncers := []zapcore.WriteSyncer{
 		zapcore.AddSync(os.Stdout),
-		buildFieSyncer(fileConfig{filepath.Join(conf.dir, "logger.log"), conf.rotateConfig.EnableRotate, conf.rotateConfig.MaxSize, conf.rotateConfig.MaxAge, conf.rotateConfig.MaxBackups, conf.rotateConfig.LocalTime, conf.rotateConfig.Compress}),
+		buildFieSyncer(fileConfig{filepath.Join(conf.dir, "logger.log"), conf.rotateConfig.Rotate, conf.rotateConfig.MaxSize, conf.rotateConfig.MaxAge, conf.rotateConfig.MaxBackups, conf.rotateConfig.LocalTime, conf.rotateConfig.Compress}),
 	}
 
 	coreTee := []zapcore.Core{
@@ -159,10 +159,10 @@ func buildSimpleZapCore(conf simpleLogConf) zapcore.Core {
 
 		coreTee = append(coreTee, []zapcore.Core{
 			zapcore.NewCore(encoder, zapcore.AddSync(
-				buildFieSyncer(fileConfig{filepath.Join(conf.dir, "info.log"), conf.rotateConfig.EnableRotate, conf.rotateConfig.MaxSize, conf.rotateConfig.MaxAge, conf.rotateConfig.MaxBackups, conf.rotateConfig.LocalTime, conf.rotateConfig.Compress}),
+				buildFieSyncer(fileConfig{filepath.Join(conf.dir, "info.log"), conf.rotateConfig.Rotate, conf.rotateConfig.MaxSize, conf.rotateConfig.MaxAge, conf.rotateConfig.MaxBackups, conf.rotateConfig.LocalTime, conf.rotateConfig.Compress}),
 			), infoLevel),
 			zapcore.NewCore(encoder, zapcore.AddSync(
-				buildFieSyncer(fileConfig{filepath.Join(conf.dir, "warn.log"), conf.rotateConfig.EnableRotate, conf.rotateConfig.MaxSize, conf.rotateConfig.MaxAge, conf.rotateConfig.MaxBackups, conf.rotateConfig.LocalTime, conf.rotateConfig.Compress}),
+				buildFieSyncer(fileConfig{filepath.Join(conf.dir, "warn.log"), conf.rotateConfig.Rotate, conf.rotateConfig.MaxSize, conf.rotateConfig.MaxAge, conf.rotateConfig.MaxBackups, conf.rotateConfig.LocalTime, conf.rotateConfig.Compress}),
 			), warnLevel),
 		}...)
 	}
@@ -172,10 +172,10 @@ func buildSimpleZapCore(conf simpleLogConf) zapcore.Core {
 
 // buildZapCore 实例化Zap Core，支持多个writer
 //
-//	logConfig.Writer.File.Path 设置的是日志文件的路径，这是和buildSimpleZapCore不同的地方。如果要根据Level输出多个文件，需要设置多个writer
+//	logConfig.Writers.File.Path 设置的是日志文件的路径，这是和buildSimpleZapCore不同的地方。如果要根据Level输出多个文件，需要设置多个writer
 func buildZapCore(conf logConfig) zapcore.Core {
 	var coreTee []zapcore.Core
-	for _, writer := range conf.Writer {
+	for _, writer := range conf.Writers {
 		if !writer.Enable {
 			continue
 		}

@@ -17,18 +17,18 @@ type simpleLogConf struct {
 
 // logConfig 完整日志配置
 type logConfig struct {
-	Writer []*writerConfig `json:"writer"`
-	Filter []*filterConfig `json:"filter"`
+	Writers []writerConfig `json:"writers"`
+	Filters []filterConfig `json:"filters"`
 }
 
 type fileConfig struct {
-	Path         string `json:"dir,omitempty"`
-	EnableRotate bool   `json:"enable_rotate"`
-	MaxSize      int    `json:"max_size,omitempty"`
-	MaxAge       int    `json:"max_age,omitempty"`
-	MaxBackups   int    `json:"max_backups,omitempty"`
-	LocalTime    bool   `json:"local_time,omitempty"`
-	Compress     bool   `json:"compress,omitempty"`
+	Path       string `json:"path,omitempty"`
+	Rotate     bool   `json:"rotate"`
+	MaxSize    int    `json:"max_size,omitempty"`
+	MaxAge     int    `json:"max_age,omitempty"`
+	MaxBackups int    `json:"max_backups,omitempty"`
+	LocalTime  bool   `json:"local_time,omitempty"`
+	Compress   bool   `json:"compress,omitempty"`
 }
 
 type filterConfig struct {
