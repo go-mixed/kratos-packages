@@ -19,15 +19,6 @@ const (
 	MessageModuleYi      = "yi"
 )
 
-// 服务类型
-const (
-	ServiceDesktop = "desktop"
-	// ServiceAdvancedDesktop 高级版，支持同一个用户的ServiceDesktop、ServiceAdvancedDesktop同时在线
-	ServiceAdvancedDesktop = "advance_desktop"
-	ServiceChat            = "chat"
-	ServiceReception       = "reception"
-)
-
 const (
 	ActionChatMessage = 10001
 	ActionChatOnline  = 10002

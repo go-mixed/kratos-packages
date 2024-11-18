@@ -352,7 +352,7 @@ func (s *Session) MustGet(key string) any {
 // GetUser 返回当前session的用户
 func (s *Session) GetUser() (auth.IAuth, error) {
 	user := utils.SyncMapGet[auth.IAuth](s.Data, "user", nil)
-	if user == nil || user.GetGuardName() == "" || user.GetGuardModel() == nil {
+	if user == nil || user.GetGuardModel().GetGuardName() == "" || user.GetGuardModel() == nil {
 		return nil, errors.Errorf("user or guard is nil")
 	}
 
@@ -439,9 +439,9 @@ func (s *Session) String() string {
 	user, _ := s.GetUser()
 	if user != nil {
 		sb.WriteString(", GuardName: ")
-		sb.WriteString(user.GetGuardName())
+		sb.WriteString(user.GetGuardModel().GetGuardName())
 		sb.WriteString(", GuardID: ")
-		sb.WriteString(strconv.FormatInt(user.GetAuthorizationID(), 10))
+		sb.WriteString(strconv.FormatInt(user.GetGuardModel().GetAuthorizationID(), 10))
 	}
 
 	sb.WriteString(", Token: ")

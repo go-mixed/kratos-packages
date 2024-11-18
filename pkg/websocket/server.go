@@ -265,16 +265,6 @@ func (s *Server) makeSession(accessToken auth.IAccessToken, auth auth.IGuard, r 
 	query := r.URL.Query()
 	service := query.Get("service")
 
-	// 历史连接没有传递service参数
-	if service == "" {
-		service = ServiceDesktop
-	}
-	// 根据需求，当accessToken.name为2时，表示高级版
-	if service == ServiceDesktop && strings.TrimSpace(accessToken.GetName()) == "2" {
-		s.logger.WithContext(r.Context()).Infof("[WS]upgrade desktop to advanced, auth = %+v, accessToken = %+v", auth, accessToken)
-		service = ServiceAdvancedDesktop
-	}
-
 	id := MakeSessionID(auth, service)
 	session := newSession(id, service, conn)
 	session.initial(r, s, auth)

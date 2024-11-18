@@ -44,8 +44,8 @@ func NewConnection(appID string, session *Session) *Connection {
 
 	user, _ := session.GetUser()
 	if user != nil {
-		conn.GuardName = user.GetGuardName()
-		conn.GuardId = user.GetAuthorizationID()
+		conn.GuardName = user.GetGuardModel().GetGuardName()
+		conn.GuardId = user.GetGuardModel().GetAuthorizationID()
 	}
 
 	return conn
