@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	HeaderXRequestID = "X-Request-ID"
+	HeaderXRequestID = "x-md-request-id"
 )
 
 // 当前节点的requestId
