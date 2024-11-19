@@ -21,8 +21,9 @@ type Option func(*Helper)
 
 // Helper is a logger helper.
 type Helper struct {
-	logger stdLog.Logger
-	msgKey string
+	originalLogger Logger
+	kratosLogger   stdLog.Logger
+	msgKey         string
 }
 
 // Need to implement gormLogger.Writer interface
@@ -67,8 +68,9 @@ func NewModuleHelper(l Logger, moduleName string, kv ...any) *Helper {
 // newHelper new a logger helper.
 func newHelper(logger Logger, opts ...Option) *Helper {
 	options := &Helper{
-		msgKey: DefaultMessageKey, // default message key
-		logger: logger.Build(),
+		msgKey:         DefaultMessageKey, // default message key
+		originalLogger: logger,
+		kratosLogger:   logger.Build(),
 	}
 	for _, o := range opts {
 		o(options)
@@ -113,95 +115,102 @@ func (h *Helper) sprintfWithStack(format string, keyVals ...any) []any {
 // to ctx. The provided ctx must be non-nil.
 func (h *Helper) WithContext(ctx context.Context) *Helper {
 	return &Helper{
-		msgKey: h.msgKey,
-		logger: stdLog.WithContext(ctx, h.logger),
+		msgKey:         h.msgKey,
+		originalLogger: h.originalLogger,
+		kratosLogger:   stdLog.WithContext(ctx, h.kratosLogger),
 	}
+}
+
+// With returns a shallow copy of h with added key-value pairs.
+func (h *Helper) With(kv ...any) *Helper {
+	l := h.originalLogger.Clone().AddValuer(kv...)
+	return newHelper(l)
 }
 
 // Log Print log by level and keyvals.
 func (h *Helper) Log(level Level, keyvals ...any) error {
-	return h.logger.Log(level, keyvals...)
+	return h.kratosLogger.Log(level, keyvals...)
 }
 
 // Debug logs a message at debug level.
 func (h *Helper) Debug(a ...any) {
-	_ = h.logger.Log(LevelDebug, h.sprintWithStack(a...)...)
+	_ = h.kratosLogger.Log(LevelDebug, h.sprintWithStack(a...)...)
 }
 
 // Debugf logs a message at debug level.
 func (h *Helper) Debugf(format string, a ...any) {
-	_ = h.logger.Log(LevelDebug, h.sprintfWithStack(format, a...)...)
+	_ = h.kratosLogger.Log(LevelDebug, h.sprintfWithStack(format, a...)...)
 }
 
 // Debugw logs a message at debug level.
 func (h *Helper) Debugw(keyvals ...any) {
-	_ = h.logger.Log(LevelDebug, h.rawWithStack(keyvals...)...)
+	_ = h.kratosLogger.Log(LevelDebug, h.rawWithStack(keyvals...)...)
 }
 
 // Info logs a message at info level.
 func (h *Helper) Info(a ...any) {
-	_ = h.logger.Log(LevelInfo, h.sprintWithStack(a...)...)
+	_ = h.kratosLogger.Log(LevelInfo, h.sprintWithStack(a...)...)
 }
 
 // Infof logs a message at info level.
 func (h *Helper) Infof(format string, a ...any) {
-	_ = h.logger.Log(LevelInfo, h.sprintfWithStack(format, a...)...)
+	_ = h.kratosLogger.Log(LevelInfo, h.sprintfWithStack(format, a...)...)
 }
 
 // Infow logs a message at info level.
 func (h *Helper) Infow(keyvals ...any) {
-	_ = h.logger.Log(LevelInfo, h.rawWithStack(keyvals...)...)
+	_ = h.kratosLogger.Log(LevelInfo, h.rawWithStack(keyvals...)...)
 }
 
 // Warn logs a message at warn level.
 func (h *Helper) Warn(a ...any) {
-	_ = h.logger.Log(LevelWarn, h.sprintWithStack(a...)...)
+	_ = h.kratosLogger.Log(LevelWarn, h.sprintWithStack(a...)...)
 }
 
 // Warnf logs a message at warnf level.
 func (h *Helper) Warnf(format string, a ...any) {
-	_ = h.logger.Log(LevelWarn, h.sprintfWithStack(format, a...)...)
+	_ = h.kratosLogger.Log(LevelWarn, h.sprintfWithStack(format, a...)...)
 }
 
 // Warnw logs a message at warnf level.
 func (h *Helper) Warnw(keyvals ...any) {
-	_ = h.logger.Log(LevelWarn, h.rawWithStack(keyvals...)...)
+	_ = h.kratosLogger.Log(LevelWarn, h.rawWithStack(keyvals...)...)
 }
 
 // Error logs a message at error level.
 func (h *Helper) Error(a ...any) {
-	_ = h.logger.Log(LevelError, h.sprintWithStack(a...)...)
+	_ = h.kratosLogger.Log(LevelError, h.sprintWithStack(a...)...)
 }
 
 // Errorf logs a message at error level.
 func (h *Helper) Errorf(format string, a ...any) {
-	_ = h.logger.Log(LevelError, h.sprintfWithStack(format, a...)...)
+	_ = h.kratosLogger.Log(LevelError, h.sprintfWithStack(format, a...)...)
 }
 
 // Errorw logs a message at error level.
 func (h *Helper) Errorw(keyvals ...any) {
-	_ = h.logger.Log(LevelError, h.rawWithStack(keyvals...)...)
+	_ = h.kratosLogger.Log(LevelError, h.rawWithStack(keyvals...)...)
 }
 
 // Fatal logs a message at fatal level.
 func (h *Helper) Fatal(a ...any) {
-	_ = h.logger.Log(LevelFatal, h.sprintWithStack(a...)...)
+	_ = h.kratosLogger.Log(LevelFatal, h.sprintWithStack(a...)...)
 	os.Exit(1)
 }
 
 // Fatalf logs a message at fatal level.
 func (h *Helper) Fatalf(format string, a ...any) {
-	_ = h.logger.Log(LevelFatal, h.sprintfWithStack(format, a...)...)
+	_ = h.kratosLogger.Log(LevelFatal, h.sprintfWithStack(format, a...)...)
 	os.Exit(1)
 }
 
 // Fatalw logs a message at fatal level.
 func (h *Helper) Fatalw(keyvals ...any) {
-	_ = h.logger.Log(LevelFatal, h.rawWithStack(keyvals...)...)
+	_ = h.kratosLogger.Log(LevelFatal, h.rawWithStack(keyvals...)...)
 	os.Exit(1)
 }
 
 // Printf 提供给Gorm使用的日志接口
 func (h *Helper) Printf(format string, a ...any) {
-	_ = h.logger.Log(LevelInfo, h.sprintfWithStack(format, a...)...)
+	_ = h.kratosLogger.Log(LevelInfo, h.sprintfWithStack(format, a...)...)
 }
