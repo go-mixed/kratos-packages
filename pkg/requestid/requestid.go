@@ -49,7 +49,10 @@ func NewContext(ctx context.Context, newRequestId string) context.Context {
 	}
 
 	segments = append(segments, newRequestId)
-	return context.WithValue(ctx, requestId{}, strings.Join(segments, ","))
+	reqId := strings.Join(segments, ",")
+	ctx = context.WithValue(ctx, requestId{}, reqId)
+	ctx = context.WithValue(ctx, "request.id", reqId) // 方便未引入karatos-packages.v1的项目读取request.id
+	return ctx
 }
 
 // FromContext 从上下文获取requestId
