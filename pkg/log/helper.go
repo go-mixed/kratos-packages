@@ -127,6 +127,12 @@ func (h *Helper) With(kv ...any) *Helper {
 	return newHelper(l)
 }
 
+// AddStack returns a shallow copy of h with added stack trace.
+func (h *Helper) AddStack(skip int) *Helper {
+	l := h.originalLogger.Clone().AddStack(skip)
+	return newHelper(l)
+}
+
 // Log Print log by level and keyvals.
 func (h *Helper) Log(level Level, keyvals ...any) error {
 	return h.kratosLogger.Log(level, keyvals...)
