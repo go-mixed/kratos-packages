@@ -20,6 +20,7 @@ var created bool
 // 所以新建一个全局唯一struct，可以随处调用
 type App struct {
 	id       string
+	debug    bool
 	name     string
 	version  string
 	metadata map[string]string
@@ -32,7 +33,7 @@ var _ kratos.AppInfo = (*App)(nil)
 // NewApp 实例化app。只能实例化一次，否则会panic
 func NewApp(
 	name string,
-
+	opts ...opt,
 ) *App {
 	if created {
 		panic("app can only be created once")
@@ -44,6 +45,11 @@ func NewApp(
 		version: Version,
 	}
 	app.ctx = kratos.NewContext(context.Background(), app)
+
+	// 配置
+	for _, o := range opts {
+		o(app)
+	}
 	return app
 }
 
@@ -53,6 +59,10 @@ func (a *App) ID() string {
 
 func (a *App) Name() string {
 	return a.name
+}
+
+func (a *App) IsDebug() bool {
+	return a.debug
 }
 
 func (a *App) Version() string {
