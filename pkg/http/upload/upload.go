@@ -29,7 +29,7 @@ func (f *uploadFile) Seek(offset int64, whence int) (int64, error) {
 	if f.file == nil {
 		return 0, errors.New("无法修改文件指针，文件已关闭")
 	}
-	return f.Seek(offset, whence)
+	return f.file.Seek(offset, whence)
 }
 
 func (f *uploadFile) Close() error {
