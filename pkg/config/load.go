@@ -13,15 +13,8 @@ func LoadSettings[C utils.IProtobuf](confDriver string, confPath string) C {
 		panic(err)
 	}
 
-	switch confDriver {
-	case DriverFile:
-		if err := driver.Scan(settings); err != nil {
-			panic(err)
-		}
-	case DriverApollo:
-		if err := driver.Value("application").Scan(settings); err != nil {
-			panic(err)
-		}
+	if err := driver.Scan(settings); err != nil {
+		panic(err)
 	}
 
 	return settings
