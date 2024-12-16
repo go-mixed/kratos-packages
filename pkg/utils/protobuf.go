@@ -3,17 +3,14 @@ package utils
 import (
 	"bytes"
 	"cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"reflect"
 	"strings"
 )
 
-type IProtobuf interface {
-	ProtoReflect() protoreflect.Message
-}
-
 // ProtobufToMap 将protobuf对象转为map
-func ProtobufToMap(protobuf IProtobuf, keepNil bool) map[string]any {
+func ProtobufToMap(protobuf proto.Message, keepNil bool) map[string]any {
 	if protobuf == nil {
 		return nil
 	}
@@ -56,14 +53,14 @@ func ProtobufToMap(protobuf IProtobuf, keepNil bool) map[string]any {
 	return results
 }
 
-func GetProtoBufField[P IProtobuf](message P, fieldName string) protoreflect.FieldDescriptor {
+func GetProtoBufField[P proto.Message](message P, fieldName string) protoreflect.FieldDescriptor {
 	messageDesc := message.ProtoReflect().Descriptor()
 	return messageDesc.Fields().ByName(protoreflect.Name(fieldName))
 }
 
 // CompareProtoBuf 比较两个protobuf消息，
 // message1 < message2 返回 -1，message1 > message2 返回 1，message1 == message2 返回 0
-func CompareProtoBuf[P IProtobuf](message1 P, message2 P, fieldName string) int {
+func CompareProtoBuf[P proto.Message](message1 P, message2 P, fieldName string) int {
 	field1 := GetProtoBufField(message1, fieldName)
 	field2 := GetProtoBufField(message2, fieldName)
 

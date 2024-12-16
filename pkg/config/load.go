@@ -1,9 +1,12 @@
 package config
 
-import "gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
+import (
+	"google.golang.org/protobuf/proto"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
+)
 
 // LoadSettings 加载配置文件
-func LoadSettings[C utils.IProtobuf](confDriver string, confPath string) C {
+func LoadSettings[C proto.Message](confDriver string, confPath string) C {
 	var driver Configure
 	var settings C = utils.New[C]()
 

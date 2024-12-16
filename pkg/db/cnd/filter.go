@@ -3,6 +3,7 @@ package cnd
 import (
 	"fmt"
 	"github.com/samber/lo"
+	"google.golang.org/protobuf/proto"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"reflect"
@@ -207,7 +208,7 @@ func OperatorIsNotNull(query *QueryBuilder, col string, _ any) error {
 }
 
 // ParseQueryBuilder 解析protobuf请求参数，构建查询条件。注意：使用的proto文件的字段名
-func ParseQueryBuilder(query *QueryBuilder, request utils.IProtobuf, columnOperators Operators) (*QueryBuilder, error) {
+func ParseQueryBuilder(query *QueryBuilder, request proto.Message, columnOperators Operators) (*QueryBuilder, error) {
 	// 通过反射获取request的字段和值，插入到requestKVs中
 	requestKVs := utils.ProtobufToMap(request, false)
 
@@ -225,7 +226,7 @@ func ParseQueryBuilder(query *QueryBuilder, request utils.IProtobuf, columnOpera
 }
 
 // ParsePagination 解析protobuf请求参数，构建分页参数。注意：使用的proto文件的字段名
-func ParsePagination(request utils.IProtobuf, pageName, pageSizeName string) *db.Pagination {
+func ParsePagination(request proto.Message, pageName, pageSizeName string) *db.Pagination {
 	if request == nil {
 		return nil
 	}

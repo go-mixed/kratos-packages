@@ -3,14 +3,14 @@ package requestid
 import (
 	"context"
 	"github.com/go-kratos/kratos/v2"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 )
 
 func fillReqIdAppId(ctx context.Context, reply any, reqId string) {
 	// 调用protobuf原生方法，将traceId和appId添加到返回值中
 	if reply != nil {
-		if response, ok := reply.(utils.IProtobuf); ok {
+		if response, ok := reply.(proto.Message); ok {
 			messageDesc := response.ProtoReflect().Descriptor()
 			// fill traceId
 			requestIdField := messageDesc.Fields().ByName("request_id")

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"sort"
 	"strings"
@@ -38,7 +39,7 @@ func SortSliceBy[S any, T comparable](originalList S, sortedBy []T, fn func(i in
 //
 //   - orderField: protobuf文件中Message的字段，比如：Message{int32 xx = 1;}中的字段xx
 //   - orderType: "asc" or "desc"
-func SortProtobufList[P IProtobuf](protoMessageList []P, orderField string, orderType string) {
+func SortProtobufList[P proto.Message](protoMessageList []P, orderField string, orderType string) {
 	orderType = strings.ToLower(orderType)
 	if orderType != "desc" && orderType != "asc" {
 		orderType = "asc"
