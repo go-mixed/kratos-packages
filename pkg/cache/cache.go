@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"context"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/redis"
 	"time"
@@ -49,17 +48,6 @@ func (c *Cache) Clone() *Cache {
 
 func (c *Cache) GetOptions() redis.Options {
 	return c.options
-}
-
-// ServerTimeDelta 获取redis服务器时间与本地时间的差值（注意：会有socket传输时间的误差）
-// e.g.: time.Now().Add(ServerTimeDelta()) 可以得到redis服务器的时间
-func (c *Cache) ServerTimeDelta(ctx context.Context) time.Duration {
-	serverTime, err := c.predis.Time(ctx)
-	if err != nil || serverTime.IsZero() {
-		return 0
-	}
-
-	return serverTime.Sub(time.Now())
 }
 
 func (c *Cache) WithOptions(options redis.Options) *Cache {

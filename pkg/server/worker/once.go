@@ -29,7 +29,7 @@ func (w *onceWorker) wrapperOnceJob(key string, job job.Job) job.Job {
 	}
 	return func(ctx context.Context) {
 		// 通过setnx来保证只执行一次
-		ok, err := w.worker.cache.SetNX(ctx, key, &lastRunning{
+		ok, err := w.worker.store.SetNX(ctx, key, &lastRunning{
 			LastAt: time.Now(),
 			AppID:  w.worker.app.ID(),
 		})
@@ -51,7 +51,7 @@ func (w *onceWorker) wrapperOnceJobWithError(key string, job job.JobWithError) j
 	}
 	return func(ctx context.Context) error {
 		// 通过setnx来保证只执行一次
-		ok, err := w.worker.cache.SetNX(ctx, key, time.Now())
+		ok, err := w.worker.store.SetNX(ctx, key, time.Now())
 		if err != nil { // 不能因为redis报错而跳过执行，只记录日志。
 			w.worker.logger.WithContext(ctx).Errorf("[JobWithError]setnx %s failed: %v", key, err)
 			return job(ctx)
@@ -99,10 +99,10 @@ func (w *onceWorker) wrapperOnceCronJob(key string, spec cron.Schedule, job job.
 	}
 
 	// 注册脚本
-	script := w.worker.cache.Script(onceCronRedisScript)
+	script := w.worker.store.Script(onceCronRedisScript)
 	// 为了确保cron的多个节点的时间一致，这里计算出redis服务器时间与本地时间的差值，
 	// 后面的now, nextTime都根据delta修正为redis服务器时间
-	delta := w.worker.cache.ServerTimeDelta(context.Background())
+	delta := w.worker.store.ServerTimeDelta(context.Background())
 
 	// 录入cron任务时，如果key不存在，就设置下次运行的时间
 	// 比如：程序滚动发布时，上一个执行的key还在
@@ -126,7 +126,7 @@ func (w *onceWorker) wrapperOnceCronJob(key string, spec cron.Schedule, job job.
 	return func(ctx context.Context) {
 		logger := w.worker.logger.WithContext(ctx)
 
-		delta = w.worker.cache.ServerTimeDelta(ctx)
+		delta = w.worker.store.ServerTimeDelta(ctx)
 		now = time.Now().Add(delta)
 		nextTime = spec.Next(now)
 		expiration = nextTime.Sub(now) * 2

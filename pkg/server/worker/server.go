@@ -8,8 +8,8 @@ import (
 	"github.com/go-kratos/kratos/v2/transport"
 	"github.com/robfig/cron/v3"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/app"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/cache"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/redis"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/server/job"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/server/schedule"
 	"sync/atomic"
@@ -24,9 +24,10 @@ import (
 //	异步任务服务，用于处理一些零散的任务，比如发送消息、发送邮件、延迟任务等。
 //	会限制并发数，但是相比直接新建多个go协程，这个会明显多个协程导致的频繁上下文切换的开销。
 type Worker struct {
-	app    *app.App
-	logger *log.Helper
-	cache  *cache.Cache
+	app     *app.App
+	logger  *log.Helper
+	store   *redis.Redis
+	options workerOptions
 
 	pool           *workerpool.WorkerPool
 	timeWheel      *timingwheel.TimingWheel
@@ -42,18 +43,26 @@ var _ IWorker = (*Worker)(nil)
 func NewWorker(
 	app *app.App,
 	logger log.Logger,
-	cache *cache.Cache,
+	rdb *redis.Client,
 
-	maxWorkers int,
+	options ...workerOption,
 ) *Worker {
+
+	var opts workerOptions = DefaultWorkerOptions()
+	for _, option := range options {
+		option(&opts)
+	}
+
+	store := redis.NewRedis(rdb.WithTimeout(rdb.Options().ReadTimeout), opts.redisOptions)
 	scheduleParser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 	return &Worker{
-		app:    app,
-		logger: log.NewModuleHelper(logger, "worker"),
-		cache:  cache,
+		app:     app,
+		logger:  log.NewModuleHelper(logger, "worker"),
+		store:   store,
+		options: opts,
 
-		pool:      workerpool.New(maxWorkers),
-		timeWheel: timingwheel.NewTimingWheel(time.Millisecond, 20),
+		pool:      workerpool.New(opts.workerCount),
+		timeWheel: timingwheel.NewTimingWheel(time.Millisecond, int64(opts.wheelSize)),
 		schedule: cron.New(
 			cron.WithParser(scheduleParser),
 			cron.WithLogger(schedule.NewScheduleLogger(logger)),
@@ -70,7 +79,7 @@ func (w *Worker) clone() *Worker {
 	return &Worker{
 		app:    w.app,
 		logger: w.logger,
-		cache:  w.cache.Clone(),
+		store:  w.store.Clone(),
 
 		pool:      w.pool,
 		timeWheel: w.timeWheel,
@@ -92,9 +101,9 @@ func (w *Worker) WithContext(ctx context.Context) IWorker {
 // OnceForCluster submits a task to be executed by a worker.
 // execute only once in the cluster. If it is a cron task, it means that only one node is executed at a time.
 // e.g.: OnceForCluster("key-123").Submit(func(ctx){...}) means that this key-123 job will only be executed once in the cluster.
-// Warning: The program can only guarantee that the job will only be executed once within the cache.expiration time.
+// Warning: The program can only guarantee that the job will only be executed once within the store.expiration time.
 // If the key expires, the subsequent submitted jobs with the same name will still be executed.
-// If it is a cron task, it means that only one node is executed at a time. (Not controlled by cache.expiration)
+// If it is a cron task, it means that only one node is executed at a time. (Not controlled by store.expiration)
 //
 //	OnceForCluster 表示该key的job只会在集群中执行一次。
 //	比如：OnceForCluster("key-123").Submit(func(ctx){...})，表示这个key-123的job只会在集群中执行一次。
