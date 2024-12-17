@@ -27,7 +27,7 @@ type Logger interface {
 	AddStack(skip int) Logger
 	ZapCore() zapcore.Core
 	Build() stdLog.Logger
-	SetLevel(level string) Logger
+	// SetLevel(level string) Logger
 	// Clone 克隆一个新的logger，后续使用需要先Build
 	Clone() Logger
 

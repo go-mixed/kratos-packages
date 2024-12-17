@@ -41,7 +41,7 @@ func NewFromConfig(baseCtx context.Context, configure config.Configure) Logger {
 		panic(err)
 	}
 
-	for _, writer := range logConf.Writers {
+	for i, writer := range logConf.Writers {
 		// 设置levelValue
 		if writer.Level == "" {
 			writer.levelValue = LevelDebug
@@ -52,15 +52,25 @@ func NewFromConfig(baseCtx context.Context, configure config.Configure) Logger {
 		if writer.TimeFormat == "" {
 			writer.TimeFormat = time.RFC3339
 		}
+		// write变量是副本，需要重新赋值到logConf.Writers
+		logConf.Writers[i] = writer
 	}
 
+	/**
+	堆栈：有filters时，stack=4，没有filters时，stack=3
+	zap.(*Logger).Log (zap.go:38) github.com/go-kratos/kratos/contrib/log/zap/v2
+	log.(*Filter).Log (filter.go:93) github.com/go-kratos/kratos/v2/log  <-- 如果没有设置filters，就没有这一层
+	log.(*logger).Log (log.go:30) github.com/go-kratos/kratos/v2/log
+	log.(*Helper).Info (helper.go:158) gopkg.in/go-mixed/kratos-packages.v2/pkg/log
+	*/
 	return &zapLogger{
 		nativeZapCore: buildZapCore(logConf),
-		stack:         4,
+		stack:         3,
 		valuers:       []any{
 			//"trace.id", tracing.TraceID(),
 			//"span.id", tracing.SpanID(),
 		},
+		filters:     []stdLog.FilterOption{stdLog.FilterLevel(stdLog.LevelDebug)},
 		baseContext: baseCtx,
 	}
 }
@@ -75,16 +85,15 @@ func NewSimple(baseCtx context.Context, opts ...zapSimpleOption) Logger {
 		opt(conf)
 	}
 	/**
-	堆栈：
+	堆栈：有filters时，stack=4，没有filters时，stack=3
 	zap.(*Logger).Log (zap.go:38) github.com/go-kratos/kratos/contrib/log/zap/v2
-	log.(*Filter).Log (filter.go:93) github.com/go-kratos/kratos/v2/log
-	... filters ... // 自定义的filters
+	log.(*Filter).Log (filter.go:93) github.com/go-kratos/kratos/v2/log  <-- 如果没有设置filters，就没有这一层
 	log.(*logger).Log (log.go:30) github.com/go-kratos/kratos/v2/log
-	log.(*Helper).Info (helper.go:120) kratos-packages/pkg/log
+	log.(*Helper).Info (helper.go:158) gopkg.in/go-mixed/kratos-packages.v2/pkg/log
 	*/
 	return &zapLogger{
 		nativeZapCore: buildSimpleZapCore(*conf),
-		stack:         4,
+		stack:         3,
 		valuers:       []any{
 			//"trace.id", tracing.TraceID(),
 			//"span.id", tracing.SpanID(),
@@ -98,11 +107,11 @@ func (l *zapLogger) ZapCore() zapcore.Core {
 	return l.nativeZapCore
 }
 
-// SetLevel 设置日志级别
-func (l *zapLogger) SetLevel(level string) Logger {
-	l.AddFilter(stdLog.FilterLevel(stdLog.ParseLevel(level)))
-	return l
-}
+//// SetLevel 设置日志级别
+//func (l *zapLogger) SetLevel(level string) Logger {
+//	l.AddFilter(stdLog.FilterLevel(stdLog.ParseLevel(level)))
+//	return l
+//}
 
 // AddValuer 添加Key-Valuer。修改的是当前的logger，在log.NewModuleHelper中设置时，请Clone后使用。
 //
@@ -125,16 +134,23 @@ func (l *zapLogger) AddStack(i int) Logger {
 }
 
 func (l *zapLogger) Build() stdLog.Logger {
-	zLogger := nativeZap.New(l.nativeZapCore, nativeZap.WithCaller(true), nativeZap.AddCallerSkip(len(l.filters)+l.stack))
-	kratosZapLogger := zap.NewLogger(zLogger)
-	// 这里的执行顺序不能变，先filters，再valuers，否则即使WithContext，valuers执行时ctx参数还是background
-	kratosLogger := stdLog.With(
-		stdLog.NewFilter(kratosZapLogger, l.filters...),
-		l.valuers...)
+	var filters []stdLog.FilterOption
+	stack := l.stack
+	if len(l.filters) > 0 {
+		// 多1层调用链：log.(*Filter).Log (filter.go:93) github.com/go-kratos/kratos/v2/log
+		stack += 1
+		// 如果有filter，则必须初始化一个Level的filter，不然在 Filter.Log 阶段就会被拦截掉，
+		// 这里写死为debug，放行所有日志，后面的zap的level拦截器会拦截掉。
+		filters = append([]stdLog.FilterOption{stdLog.FilterLevel(stdLog.LevelDebug)}, l.filters...)
+	}
+	zLogger := nativeZap.New(l.nativeZapCore, nativeZap.WithCaller(true), nativeZap.AddCallerSkip(stack))
+	var kratosZapLogger stdLog.Logger = zap.NewLogger(zLogger)
+	// 这里的执行顺序不能变，先filters，再valuers，否则在WithContext之后，执行时ctx参数还是background
+	if len(filters) > 0 {
+		kratosZapLogger = stdLog.NewFilter(kratosZapLogger, filters...)
+	}
 	// 附加基础的context
-	kratosLogger = stdLog.WithContext(l.baseContext, kratosLogger)
-
-	return kratosLogger
+	return stdLog.WithContext(l.baseContext, stdLog.With(kratosZapLogger, l.valuers...))
 }
 
 func (l *zapLogger) Log(level Level, keyVals ...any) error {
