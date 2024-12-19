@@ -7,6 +7,8 @@ type ObserveListener[T comparable] func(preValue, newValue T)
 type IObserve[T comparable] interface {
 	// Set Atomic set new value
 	Set(value T)
+	// SetAndTrigger Atomic set new value, force triggers listeners
+	SetAndTrigger(value T)
 	// CompareAndSwap Atomic compare and swap value, triggers listeners ONLY oldValue != newValue
 	CompareAndSwap(oldValue T, newValue T) (swapped bool)
 	// Value Get current value(atomic)
@@ -40,6 +42,15 @@ func (o *observer[T]) Set(value T) {
 		for _, listener := range o.listeners {
 			listener(oldValueT, value)
 		}
+	}
+}
+
+// SetAndTrigger Atomic set new value, force triggers listeners
+func (o *observer[T]) SetAndTrigger(value T) {
+	oldValue := o.value.Swap(value)
+	oldValueT := oldValue.(T)
+	for _, listener := range o.listeners {
+		listener(oldValueT, value)
 	}
 }
 
