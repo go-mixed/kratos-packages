@@ -1,6 +1,7 @@
 package awsSignature
 
 import (
+	"context"
 	"github.com/samber/lo"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
 	"net/http"
@@ -79,10 +80,10 @@ func (s *AwsSignatureV4) Signer(accessKey, secretKey, sessionToken string) *sign
 }
 
 // Verify 只支持v4签名
-func (s *signer) Verify(r *http.Request) error {
+func (s *signer) Verify(ctx context.Context, r *http.Request) error {
 	sha256sum, err := GetContentSha256Checksum(r, s.v4.serviceName)
 	if err != nil {
-		s.v4.logger.Error(err.Error())
+		s.v4.logger.WithContext(ctx).Error(err.Error())
 	}
 	switch {
 	case IsRequestSignatureV4(r):
