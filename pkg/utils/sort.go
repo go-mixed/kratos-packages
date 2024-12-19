@@ -3,6 +3,7 @@ package utils
 import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -76,5 +77,19 @@ func SortProtobufList[P proto.Message](protoMessageList []P, orderField string, 
 			return cmp < 0
 		}
 		return cmp > 0
+	})
+}
+
+// MultipleSortStableFunc 多字段稳定排序排序（如果a,b值相同，则不会改变a,b的顺序）
+//   - 类似于 Order By a asc, b asc, c asc
+//   - 注意：cmp返回非0时，后面的cmp不会执行
+func MultipleSortStableFunc[S ~[]E, E any](list S, cmp ...func(a, b E) int) {
+	slices.SortStableFunc(list, func(a, b E) int {
+		for _, c := range cmp {
+			if val := c(a, b); val != 0 {
+				return val
+			}
+		}
+		return 0
 	})
 }
