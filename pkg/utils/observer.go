@@ -1,6 +1,8 @@
 package utils
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+)
 
 type ObserveListener[T comparable] func(preValue, newValue T)
 
@@ -19,7 +21,7 @@ type IObserve[T comparable] interface {
 
 type observer[T comparable] struct {
 	value     atomic.Value
-	listeners []ObserveListener[T]
+	listeners IEventListeners[ObserveListener[T]]
 }
 
 // NewObserver Create new observer
@@ -28,9 +30,16 @@ func NewObserver[T comparable](initialValue T) IObserve[T] {
 	value.Store(initialValue)
 	o := &observer[T]{
 		value:     value,
-		listeners: make([]ObserveListener[T], 0),
+		listeners: NewEventListeners[ObserveListener[T]](),
 	}
 	return o
+}
+
+// trigger triggers listeners
+func (o *observer[T]) trigger(oldValue T, newValue T) {
+	for _, listener := range o.listeners.Iterator() {
+		listener(oldValue, newValue)
+	}
 }
 
 // Set Atomic set new value, triggers listeners if value changed
@@ -39,9 +48,7 @@ func (o *observer[T]) Set(value T) {
 	oldValueT := oldValue.(T)
 	// trigger listeners if value changed
 	if oldValueT != value {
-		for _, listener := range o.listeners {
-			listener(oldValueT, value)
-		}
+		o.trigger(oldValueT, value)
 	}
 }
 
@@ -49,9 +56,8 @@ func (o *observer[T]) Set(value T) {
 func (o *observer[T]) SetAndTrigger(value T) {
 	oldValue := o.value.Swap(value)
 	oldValueT := oldValue.(T)
-	for _, listener := range o.listeners {
-		listener(oldValueT, value)
-	}
+
+	o.trigger(oldValueT, value)
 }
 
 // CompareAndSwap Atomic compare and swap value, triggers listeners ONLY oldValue != newValue
@@ -59,9 +65,7 @@ func (o *observer[T]) CompareAndSwap(oldValue, newValue T) (swapped bool) {
 	swapped = o.value.CompareAndSwap(oldValue, newValue)
 
 	if swapped && oldValue != newValue {
-		for _, listener := range o.listeners {
-			listener(oldValue, newValue)
-		}
+		o.trigger(oldValue, newValue)
 	}
 	return swapped
 }
@@ -73,7 +77,7 @@ func (o *observer[T]) Value() T {
 
 // Watch call listeners if value changed
 func (o *observer[T]) Watch(listeners ...ObserveListener[T]) IObserve[T] {
-	o.listeners = append(o.listeners, listeners...)
+	o.listeners.Add(listeners...)
 	return o
 }
 
