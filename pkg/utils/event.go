@@ -18,18 +18,35 @@ type IEventListeners[T any] interface {
 	Iterator() iter.Seq2[int, T]
 	// Listeners 获取监听器列表（副本）
 	Listeners() []T
+	// DuplicateListener 是否允许添加重复的监听器
+	DuplicateListener() bool
+	// SetDuplicateListener 开/关：是否允许添加重复的监听器
+	SetDuplicateListener(bool) IEventListeners[T]
+	// Size 监听器数量
+	Size() int
 }
 
 type EventListeners[T any] struct {
-	listeners []T
-	mutex     sync.RWMutex
+	listeners         []T
+	mutex             sync.RWMutex
+	duplicateListener bool
 }
 
 var _ IEventListeners[any] = (*EventListeners[any])(nil)
 
+// NewEventListeners 创建一个事件监听器，不允许添加重复的监听器
 func NewEventListeners[T any]() IEventListeners[T] {
 	return &EventListeners[T]{
-		mutex: sync.RWMutex{},
+		mutex:             sync.RWMutex{},
+		duplicateListener: false,
+	}
+}
+
+// NewDuplicateEventListeners 创建一个事件监听器，允许添加重复的监听器
+func NewDuplicateEventListeners[T any]() IEventListeners[T] {
+	return &EventListeners[T]{
+		mutex:             sync.RWMutex{},
+		duplicateListener: true,
 	}
 }
 
@@ -37,7 +54,14 @@ func NewEventListeners[T any]() IEventListeners[T] {
 func (e *EventListeners[T]) Add(listeners ...T) IEventListeners[T] {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
-	// 避免重复添加监听器，通过对比Ptr来实现
+
+	// 允许添加重复的监听器
+	if e.duplicateListener {
+		e.listeners = append(e.listeners, listeners...)
+		return e
+	}
+
+	// 不允许重复添加监听器，通过对比Ptr来实现
 	_oldPtrs := lo.Map(e.listeners, func(listener T, _ int) uintptr {
 		ptr := reflect.ValueOf(listener)
 		return ptr.Pointer()
@@ -96,4 +120,34 @@ func (e *EventListeners[T]) Listeners() []T {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 	return e.listeners
+}
+
+// DuplicateListener 是否允许添加重复的监听器
+func (e *EventListeners[T]) DuplicateListener() bool {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+	return e.duplicateListener
+}
+
+// SetDuplicateListener 开/关：是否允许添加重复的监听器
+func (e *EventListeners[T]) SetDuplicateListener(duplicateListener bool) IEventListeners[T] {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	// 关闭重复监听器时，需要移除重复的监听器
+	if duplicateListener != e.duplicateListener && !duplicateListener {
+		e.listeners = lo.UniqBy(e.listeners, func(item T) uintptr {
+			return reflect.ValueOf(item).Pointer()
+		})
+	}
+
+	e.duplicateListener = duplicateListener
+	return e
+}
+
+// Size 监听器数量
+func (e *EventListeners[T]) Size() int {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+	return len(e.listeners)
 }
