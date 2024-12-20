@@ -1,6 +1,9 @@
 package utils
 
-import "sync"
+import (
+	"iter"
+	"sync"
+)
 
 type ConcurrentMap[K comparable, V any] struct {
 	m sync.Map
@@ -42,6 +45,15 @@ func (m *ConcurrentMap[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool
 // Range 原子性的遍历
 func (m *ConcurrentMap[K, V]) Range(f func(key K, value V) bool) {
 	m.m.Range(func(key, value any) bool { return f(key.(K), value.(V)) })
+}
+
+// Iterator 原子性的迭代器
+func (m *ConcurrentMap[K, V]) Iterator() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		m.Range(func(key K, value V) bool {
+			return yield(key, value)
+		})
+	}
 }
 
 // Store 存储
