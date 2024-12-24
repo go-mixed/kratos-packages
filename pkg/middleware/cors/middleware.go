@@ -84,7 +84,7 @@ func EnableCORS(opts ...corsOption) func(http.Handler) http.Handler {
 	}
 }
 
-func trimStrings(ls ...string) []string {
+func trimHeaderStrings(ls ...string) []string {
 	var _ls []string
 	for _, h := range ls {
 		h = strings.TrimSpace(h)
@@ -108,7 +108,7 @@ func WithOrigin(origin string) corsOption {
 
 func WithMethods(methods ...string) corsOption {
 	return func(m *corsMiddleware) {
-		m.methods = trimStrings(methods...)
+		m.methods = trimHeaderStrings(methods...)
 	}
 }
 
@@ -122,13 +122,13 @@ func WithCredentials(val bool) corsOption {
 func WithHeaders(headers ...string) corsOption {
 	return func(m *corsMiddleware) {
 
-		m.headers = trimStrings(headers...)
+		m.headers = trimHeaderStrings(headers...)
 	}
 }
 
 func WithExposeHeaders(headers ...string) corsOption {
 	return func(m *corsMiddleware) {
-		m.exposeHeaders = trimStrings(headers...)
+		m.exposeHeaders = trimHeaderStrings(headers...)
 	}
 }
 
