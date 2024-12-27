@@ -101,67 +101,67 @@ func (s spec) EverySeconds(seconds ...int) (cron.EntryID, error) {
 	return s.Cron(fmt.Sprintf("@every %ds", defaultSeconds))
 }
 
-// EveryMinute 每分钟运行job
+// EveryMinute 每分钟运行job，会在**:**:00的每分钟运行（即秒为00）
 func (s spec) EveryMinute() (cron.EntryID, error) {
 	return s.EveryMinutes(1)
 }
 
-// AfterEveryMinute 每分钟后运行job
+// AfterEveryMinute 每分钟后运行job，设置时间之后每1分钟，比如当前时间为**00::23，则在**:**:23运行
 func (s spec) AfterEveryMinute() (cron.EntryID, error) {
 	return s.Cron("@every 1m")
 }
 
-// EveryMinutes 每多少分钟运行job
+// EveryMinutes 每多少分钟运行job，比如5分钟，则会在这些时间运行：**:00:00, **:05:00, **:10:00, **:15:00, **:20:00, **:25:00, **:30:00, **:35:00, **:40:00, **:45:00, **:50:00, **:55:00
 func (s spec) EveryMinutes(minutes int) (cron.EntryID, error) {
-	return s.Cron(fmt.Sprintf("0 0/%d * * * *", minutes))
+	return s.Cron(fmt.Sprintf("0 */%d * * * *", minutes))
 }
 
-// AfterEveryMinutes 每多少分钟后运行job
+// AfterEveryMinutes 每多少分钟后运行job，比如当前时间为**00::23，设置为5，则会在这些时间运行：**:00:23, **:05:23, **:10:23, **:15:23, **:20:23, **:25:23, **:30:23, **:35:23, **:40:23, **:45:23, **:50:23, **:55:23
 func (s spec) AfterEveryMinutes(minutes int) (cron.EntryID, error) {
 	return s.Cron(fmt.Sprintf("@every %dm", minutes))
 }
 
-// EveryFiveMinutes 每五分钟运行job
+// EveryFiveMinutes 每五分钟运行job，会在这些时间运行：**:00:00, **:05:00, **:10:00, **:15:00, **:20:00, **:25:00, **:30:00, **:35:00, **:40:00, **:45:00, **:50:00, **:55:00
 func (s spec) EveryFiveMinutes() (cron.EntryID, error) {
 	return s.EveryMinutes(5)
 }
 
-// AfterEveryFiveMinutes 每五分钟后运行job
+// AfterEveryFiveMinutes 每五分钟后运行job，比如当前时间为**00::23，设置为5，则会在这些时间运行：**:00:23, **:05:23, **:10:23, **:15:23, **:20:23, **:25:23, **:30:23, **:35:23, **:40:23, **:45:23, **:50:23, **:55:23
 func (s spec) AfterEveryFiveMinutes() (cron.EntryID, error) {
 	return s.AfterEveryMinutes(5)
 }
 
-// EveryTenMinutes 每十分钟运行job
+// EveryTenMinutes 每十分钟运行job，在这些时间运行：**:00:00, **:10:00, **:20:00, **:30:00, **:40:00, **:50:00
 func (s spec) EveryTenMinutes() (cron.EntryID, error) {
 	return s.EveryMinutes(10)
 }
 
-// AfterEveryTenMinutes 每十分钟后运行job
+// AfterEveryTenMinutes 每十分钟后运行job，比如当前时间为**00::23，则会在这些时间运行：**:00:23, **:10:23, **:20:23, **:30:23, **:40:23, **:50:23
 func (s spec) AfterEveryTenMinutes() (cron.EntryID, error) {
 	return s.AfterEveryMinutes(10)
 }
 
-// EveryFifteenMinutes 每十五分钟运行job
+// EveryFifteenMinutes 每十五分钟运行job，在这些时间运行：**:00:00, **:15:00, **:30:00, **:45:00
 func (s spec) EveryFifteenMinutes() (cron.EntryID, error) {
 	return s.EveryMinutes(15)
 }
 
-// AfterEveryFifteenMinutes 每十五分钟后运行job
+// AfterEveryFifteenMinutes 每十五分钟后运行job，比如当前时间为**00::23，则会在这些时间运行：**:00:23, **:15:23, **:30:23, **:45:23
 func (s spec) AfterEveryFifteenMinutes() (cron.EntryID, error) {
 	return s.AfterEveryMinutes(15)
 }
 
-// EveryThirtyMinutes 每三十分钟运行job
+// EveryThirtyMinutes 每三十分钟运行job，在这些时间运行：**:00:00, **:30:00
 func (s spec) EveryThirtyMinutes() (cron.EntryID, error) {
 	return s.EveryMinutes(30)
 }
 
-// AfterEveryThirtyMinutes 每三十分钟后运行job
+// AfterEveryThirtyMinutes 每三十分钟后运行job，比如当前时间为**00::23，则会在这些时间运行：**:00:23, **:30:23
 func (s spec) AfterEveryThirtyMinutes() (cron.EntryID, error) {
 	return s.AfterEveryMinutes(30)
 }
 
-// Hourly 每小时运行job
+// Hourly 每小时运行job，在**:00:00运行
 func (s spec) Hourly() (cron.EntryID, error) {
 	return s.Cron("@hourly")
 }
@@ -171,7 +171,7 @@ func (s spec) HourlyAt(offset int) (cron.EntryID, error) {
 	return s.Cron(fmt.Sprintf("@every 1h%dm", offset))
 }
 
-// Daily 每天运行job
+// Daily 每天运行job，在00:00:00运行
 func (s spec) Daily() (cron.EntryID, error) {
 	return s.Cron("@daily")
 }
@@ -186,12 +186,12 @@ func (s spec) DailyAt(t string) (cron.EntryID, error) {
 	return s.Cron(fmt.Sprintf("%s %s * * *", tt[0], tt[1]))
 }
 
-// Weekly 每周运行job
+// Weekly 每周运行job，在周一00:00:00运行
 func (s spec) Weekly() (cron.EntryID, error) {
 	return s.Cron("@weekly")
 }
 
-// Monthly 每月运行job
+// Monthly 每月运行job，在1号00:00:00运行
 func (s spec) Monthly() (cron.EntryID, error) {
 	return s.Cron("@monthly")
 }

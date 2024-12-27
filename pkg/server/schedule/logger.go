@@ -18,9 +18,9 @@ func NewScheduleLogger(logger log.Logger) *scheduleLogger {
 }
 
 func (s scheduleLogger) Info(msg string, keysAndValues ...any) {
-	s.h.Infof(msg, keysAndValues...)
+	s.h.Debug(append([]any{msg}, keysAndValues...)...)
 }
 
 func (s scheduleLogger) Error(err error, msg string, keysAndValues ...any) {
-	s.h.Errorf(msg, append([]any{err}, keysAndValues...)...)
+	s.h.Error(append([]any{msg, err}, keysAndValues...)...)
 }

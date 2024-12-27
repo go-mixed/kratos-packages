@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"fmt"
-	"github.com/RussellLuo/timingwheel"
 	"github.com/gammazero/workerpool"
 	"github.com/go-kratos/kratos/v2/transport"
 	"github.com/robfig/cron/v3"
@@ -30,7 +29,6 @@ type Worker struct {
 	options workerOptions
 
 	pool           *workerpool.WorkerPool
-	timeWheel      *timingwheel.TimingWheel
 	schedule       *cron.Cron
 	scheduleParser cron.Parser
 	stopped        *atomic.Bool
@@ -61,8 +59,7 @@ func NewWorker(
 		store:   store,
 		options: opts,
 
-		pool:      workerpool.New(opts.workerCount),
-		timeWheel: timingwheel.NewTimingWheel(time.Millisecond, int64(opts.wheelSize)),
+		pool: workerpool.New(opts.workerCount),
 		schedule: cron.New(
 			cron.WithParser(scheduleParser),
 			cron.WithLogger(schedule.NewScheduleLogger(logger)),
@@ -81,11 +78,11 @@ func (w *Worker) clone() *Worker {
 		logger: w.logger,
 		store:  w.store.Clone(),
 
-		pool:      w.pool,
-		timeWheel: w.timeWheel,
-		schedule:  w.schedule,
-		stopped:   w.stopped,
-		ctx:       w.ctx,
+		pool:           w.pool,
+		schedule:       w.schedule,
+		scheduleParser: w.scheduleParser,
+		stopped:        w.stopped,
+		ctx:            w.ctx,
 	}
 }
 
@@ -109,14 +106,10 @@ func (w *Worker) WithContext(ctx context.Context) IWorker {
 //	比如：OnceForCluster("key-123").Submit(func(ctx){...})，表示这个key-123的job只会在集群中执行一次。
 //	注意：程序只能保证在cache.expiration时间内，只会执行一次，如果key过期了，后续提交后的同名job还是会执行。
 //	如果是cron任务，表示在每次定时任务触发时只在一个节点执行。（不受cache.expiration过期控制）
-func (w *Worker) OnceForCluster(key string, options ...onceOption) IWorker {
+func (w *Worker) OnceForCluster(key string) IWorker {
 	ow := &onceWorker{
 		key:    key,
 		worker: w.clone(),
-	}
-
-	for _, option := range options {
-		option(ow)
 	}
 
 	return ow
@@ -170,13 +163,33 @@ func (w *Worker) SubmitWithError(job job.JobWithError) error {
 //
 //	SubmitAfter 提交一个任务在delay之后执行，这是一个【异步】调用；
 //	（为了防止job在调用时会用到request canceled的ctx，将会context转换成一个不会cancel的context）
-func (w *Worker) SubmitAfter(delay time.Duration, job job.Job) {
+func (w *Worker) SubmitAfter(delay time.Duration, job job.Job) *time.Timer {
 	ctx := w.app.CloneContextFromBase(w.ctx)
-	w.timeWheel.AfterFunc(delay, func() {
+	return time.AfterFunc(delay, func() {
 		w.pool.Submit(func() {
 			job(ctx)
 		})
 	})
+}
+
+// SubmitTicker submits a task to be executed by a worker every interval.
+// It's a NON-BLOCKING call, aka an ASYNCHRONOUS task.
+// (The job will use the converted context without canceling when calling)
+//
+//	SubmitTicker 提交一个任务每个interval时执行，这是一个【异步】调用；
+//	（为了防止job在调用时会用到request canceled的ctx，将会context转换成一个不会cancel的context）
+func (w *Worker) SubmitTicker(interval time.Duration, job job.Job) *time.Ticker {
+	ctx := w.app.CloneContextFromBase(w.ctx)
+	ticker := time.NewTicker(interval)
+	go func() {
+		for range ticker.C {
+			w.pool.Submit(func() {
+				job(ctx)
+			})
+		}
+	}()
+
+	return ticker
 }
 
 func (w *Worker) parseSchedule(spec any) (cron.Schedule, error) {
@@ -222,7 +235,6 @@ func (w *Worker) Start(ctx context.Context) error {
 	w.ctx = ctx
 	w.stopped.Store(false)
 
-	w.timeWheel.Start()
 	w.schedule.Start()
 	w.logger.WithContext(ctx).Infof("time wheel, schedule, worker pool(size=%d) started", w.pool.Size())
 	return nil
@@ -231,7 +243,6 @@ func (w *Worker) Start(ctx context.Context) error {
 func (w *Worker) Stop(ctx context.Context) error {
 	w.ctx = ctx
 	w.pool.StopWait()
-	w.timeWheel.Stop()
 	w.schedule.Stop()
 	w.stopped.Store(true)
 
