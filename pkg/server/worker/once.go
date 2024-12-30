@@ -6,6 +6,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/server/schedule"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/server/task"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"time"
 )
 
@@ -13,6 +14,8 @@ type onceWorker struct {
 	key string
 	// worker 外部创建时，必须是worker的clone体。因为会修改worker.store的属性
 	worker *Worker
+	// 使用key当 task.TaskID
+	keyAsTaskID bool
 }
 
 var _ IWorker = (*onceWorker)(nil)
@@ -232,12 +235,12 @@ func (w *onceWorker) WithContext(ctx context.Context) IWorker {
 // 如果是cron/timer任务，表示在每次定时任务触发时只在一个节点执行。
 //
 //	比如：OnceForCluster("key-123").Submit(func(ctx){...})
-func (w *onceWorker) OnceForCluster(key string) IWorker {
-	return w.worker.OnceForCluster(key)
+func (w *onceWorker) OnceForCluster(key string, opts ...onceOption) IWorker {
+	return w.worker.OnceForCluster(key, opts...)
 }
 
 func (w *onceWorker) Submit(_job task.Job) task.TaskID {
-	taskId := task.TaskID(fmt.Sprintf("once:immediate:%s", w.key))
+	taskId := task.TaskID(utils.If(w.keyAsTaskID, w.key, fmt.Sprintf("once:immediate:%s", w.key)))
 	_immediateSchedule := newImmediateSchedule()
 
 	return w.worker.AddTask(taskId, _immediateSchedule, w.wrapperOnceJob(w.worker.ctx, w.key, 5*time.Second, _job))
@@ -248,7 +251,7 @@ func (w *onceWorker) SubmitSync(job task.JobWithError) error {
 }
 
 func (w *onceWorker) SubmitTimer(interval time.Duration, times int64, _job task.Job) task.TaskID {
-	taskId := task.TaskID(fmt.Sprintf("once:timer:%s", w.key))
+	taskId := task.TaskID(utils.If(w.keyAsTaskID, w.key, fmt.Sprintf("once:timer:%s", w.key)))
 	_timerSchedule := newTimerSchedule(interval, times)
 	return w.worker.AddTaskWithCallback(
 		taskId,
@@ -275,7 +278,7 @@ func (w *onceWorker) Cron(spec any, _job task.Job) (task.TaskID, error) {
 		w.worker.logger.Errorf("[Cron]parse schedule %v failed: %v", spec, err)
 		return "", err
 	}
-	taskId := task.TaskID(fmt.Sprintf("once:cron:%s", w.key))
+	taskId := task.TaskID(utils.If(w.keyAsTaskID, w.key, fmt.Sprintf("once:cron:%s", w.key)))
 	_cronSchedule := newCronSchedule(_schedule)
 
 	return w.worker.AddTask(taskId, _cronSchedule, w.wrapperOnceCronJob(w.key, _cronSchedule, _job)), nil
@@ -290,6 +293,6 @@ func (w *onceWorker) GetTask(taskId task.TaskID) *task.Task {
 	return w.worker.GetTask(taskId)
 }
 
-func (w *onceWorker) CancelTask(jobID task.TaskID) {
-	w.worker.CancelTask(jobID)
+func (w *onceWorker) CancelTask(taskId task.TaskID) {
+	w.worker.CancelTask(taskId)
 }

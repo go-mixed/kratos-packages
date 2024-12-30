@@ -14,7 +14,7 @@ type IWorker interface {
 	//  - 如果是Timer（涵盖SubmitAfter、SubmitLoop），同一个interval周期时，只有1个会成功执行
 	//  - 如果是Cron，同一个interval周期内，只有1个会执行成功
 	//  - 注意：Timer、Cron中，interval会以该key第一个提交任务的时间作为起点
-	OnceForCluster(key string) IWorker
+	OnceForCluster(key string, opts ...onceOption) IWorker
 	// Submit 提交一个异步任务，运行结束后，TaskID会被删除
 	//  一般情况下会立即异步执行，除非任务太多导致堆积没有被执行，才能被 CancelTask 取消
 	Submit(job task.Job) task.TaskID

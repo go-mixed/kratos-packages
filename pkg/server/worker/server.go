@@ -108,10 +108,15 @@ func (w *Worker) WithContext(ctx context.Context) IWorker {
 //	OnceForCluster 表示该key的job只会在集群中执行一次。
 //	比如：OnceForCluster("key-123").Submit(func(ctx){...})，表示这个key-123的job只会在集群中执行一次。
 //	如果是cron/timer任务，表示在每次定时任务触发时只在一个节点执行。
-func (w *Worker) OnceForCluster(key string) IWorker {
+func (w *Worker) OnceForCluster(key string, opts ...onceOption) IWorker {
 	ow := &onceWorker{
-		key:    key,
-		worker: w.clone(),
+		key:         key,
+		worker:      w.clone(),
+		keyAsTaskID: false,
+	}
+
+	for _, opt := range opts {
+		opt(ow)
 	}
 
 	return ow
