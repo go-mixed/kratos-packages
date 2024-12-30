@@ -59,12 +59,28 @@ func (m *ConcurrentMap[K, V]) Iterator() iter.Seq2[K, V] {
 // Store 存储
 func (m *ConcurrentMap[K, V]) Store(key K, value V) { m.m.Store(key, value) }
 
+// Swap 原子性的替换
+func (m *ConcurrentMap[K, V]) Swap(key K, value V) (old V, loaded bool) {
+	o, loaded := m.m.Swap(key, value)
+	if !loaded {
+		return old, loaded
+	}
+	return o.(V), loaded
+}
+
+// CompareAndSwap 原子性的替换，如果key存在则替换，如果key不存在则存储
+func (m *ConcurrentMap[K, V]) CompareAndSwap(key K, old, new V) (swapped bool) {
+	return m.m.CompareAndSwap(key, old, new)
+}
+
+// CompareAndDelete 原子性的替换，如果key存在且等于old则替换，如果key不存在则存储
+func (m *ConcurrentMap[K, V]) CompareAndDelete(key K, old V) (deleted bool) {
+	return m.m.CompareAndDelete(key, old)
+}
+
 // Clear 原子性的移除所有key
 func (m *ConcurrentMap[K, V]) Clear() {
-	m.Range(func(key K, value V) bool {
-		m.Delete(key)
-		return true
-	})
+	m.m.Clear()
 }
 
 // RemoveExcept 原子性的移除不存在的key

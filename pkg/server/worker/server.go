@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"github.com/gammazero/workerpool"
 	"github.com/go-kratos/kratos/v2/transport"
+	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/app"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/redis"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/server/job"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/server/schedule"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/server/task"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"sync/atomic"
 	"time"
 )
@@ -33,6 +35,9 @@ type Worker struct {
 	scheduleParser cron.Parser
 	stopped        *atomic.Bool
 	ctx            context.Context
+
+	// 记录当前正在执行的任务
+	tasks utils.ConcurrentMap[task.TaskID, *task.Task]
 }
 
 var _ transport.Server = (*Worker)(nil)
@@ -67,6 +72,8 @@ func NewWorker(
 		scheduleParser: scheduleParser,
 		stopped:        &atomic.Bool{},
 		ctx:            app.BaseContext(),
+
+		tasks: utils.ConcurrentMap[task.TaskID, *task.Task]{},
 	}
 }
 
@@ -96,16 +103,11 @@ func (w *Worker) WithContext(ctx context.Context) IWorker {
 }
 
 // OnceForCluster submits a task to be executed by a worker.
-// execute only once in the cluster. If it is a cron task, it means that only one node is executed at a time.
-// e.g.: OnceForCluster("key-123").Submit(func(ctx){...}) means that this key-123 job will only be executed once in the cluster.
-// Warning: The program can only guarantee that the job will only be executed once within the store.expiration time.
-// If the key expires, the subsequent submitted jobs with the same name will still be executed.
-// If it is a cron task, it means that only one node is executed at a time. (Not controlled by store.expiration)
+// execute only once in the cluster. If it is a cron/timer task, it means that only one node is executed at a time.
 //
 //	OnceForCluster 表示该key的job只会在集群中执行一次。
 //	比如：OnceForCluster("key-123").Submit(func(ctx){...})，表示这个key-123的job只会在集群中执行一次。
-//	注意：程序只能保证在cache.expiration时间内，只会执行一次，如果key过期了，后续提交后的同名job还是会执行。
-//	如果是cron任务，表示在每次定时任务触发时只在一个节点执行。（不受cache.expiration过期控制）
+//	如果是cron/timer任务，表示在每次定时任务触发时只在一个节点执行。
 func (w *Worker) OnceForCluster(key string) IWorker {
 	ow := &onceWorker{
 		key:    key,
@@ -115,81 +117,118 @@ func (w *Worker) OnceForCluster(key string) IWorker {
 	return ow
 }
 
-// Submit submits a task to be executed by a worker.
-// It's a NON-BLOCKING call, aka an ASYNCHRONOUS task.
-// (The job will use the converted context without canceling when calling)
+// Submit submits a ASYNCHRONOUS task to be executed by a worker.
 //
-//	Submit 提交一个任务给worker执行，这是一个异步调用；
-//	（为了防止job在调用时会用到request canceled的ctx，将会context转换成一个不会cancel的context）
-func (w *Worker) Submit(job job.Job) {
-	ctx := w.app.CloneContextFromBase(w.ctx)
-	w.pool.Submit(func() {
-		job(ctx)
-	})
+//	Submit 提交一个异步任务给worker执行。
+func (w *Worker) Submit(_job task.Job) task.TaskID {
+	taskId := task.TaskID(fmt.Sprintf("immediate:%s", uuid.NewString()))
+
+	return w.AddTask(taskId, newImmediateSchedule(), _job)
 }
 
-// SubmitWait submits a task to be executed by a worker.
+// SubmitSync submits a task to be executed by a worker and returns the error.
 // It's a blocking call until the worker finishes the task
-// (The job will use the app.BaseContext() when calling， or you defined the context by WithContext)
 //
-//	SubmitWait 提交一个任务给worker执行，这是一个同步调用，必须等待任务执行完毕才会返回。
-//	（job执行时使用的是app.BaseContext()，或者你可以通过WithContext自定义context）
-func (w *Worker) SubmitWait(job job.Job) {
-	// ctx := w.app.CloneContextFromBase(w.ctx)
-	w.pool.SubmitWait(func() {
-		job(w.ctx)
-	})
-}
-
-// SubmitWithError submits a task to be executed by a worker and returns the error.
-// It's a blocking call until the worker finishes the task
-// (The job will use the app.BaseContext() when calling， or you defined the context by WithContext)
-//
-//	SubmitWithError 提交一个任务给worker执行，这是一个同步调用，必须等待任务执行完毕才会返回error。
-//	（job执行时使用的是app.BaseContext()，或者你可以通过WithContext自定义context）
-func (w *Worker) SubmitWithError(job job.JobWithError) error {
-	// ctx := w.app.CloneContextFromBase(w.ctx)
+//	SubmitSync 提交一个任务给worker执行，这是一个同步调用，必须等待任务执行完毕才会返回error。
+func (w *Worker) SubmitSync(job task.JobWithError) error {
 	var err error
+
 	w.pool.SubmitWait(func() {
 		err = job(w.ctx)
 	})
-
 	return err
 }
 
-// SubmitAfter submits a task to be executed by a worker after a delay.
-// It's a NON-BLOCKING call, aka an ASYNCHRONOUS task.
-// (The job will use the converted context without canceling when calling)
+// AddTask adds a ASYNCHRONOUS task to be executed by a worker.
 //
-//	SubmitAfter 提交一个任务在delay之后执行，这是一个【异步】调用；
-//	（为了防止job在调用时会用到request canceled的ctx，将会context转换成一个不会cancel的context）
-func (w *Worker) SubmitAfter(delay time.Duration, job job.Job) *time.Timer {
-	ctx := w.app.CloneContextFromBase(w.ctx)
-	return time.AfterFunc(delay, func() {
-		w.pool.Submit(func() {
-			job(ctx)
-		})
-	})
+//	AddTask 添加一个任务给worker执行，这是一个异步调用；
+func (w *Worker) AddTask(
+	taskId task.TaskID,
+	schedule task.TaskSchedule,
+	_job task.Job,
+) task.TaskID {
+	return w.AddTaskWithCallback(taskId, schedule, _job, nil)
 }
 
-// SubmitTicker submits a task to be executed by a worker every interval.
-// It's a NON-BLOCKING call, aka an ASYNCHRONOUS task.
-// (The job will use the converted context without canceling when calling)
+// AddTaskWithCallback adds a ASYNCHRONOUS task to be executed by a worker. and callback when task complete
 //
-//	SubmitTicker 提交一个任务每个interval时执行，这是一个【异步】调用；
-//	（为了防止job在调用时会用到request canceled的ctx，将会context转换成一个不会cancel的context）
-func (w *Worker) SubmitTicker(interval time.Duration, job job.Job) *time.Ticker {
-	ctx := w.app.CloneContextFromBase(w.ctx)
-	ticker := time.NewTicker(interval)
-	go func() {
-		for range ticker.C {
-			w.pool.Submit(func() {
-				job(ctx)
-			})
-		}
-	}()
+//	AddTaskWithCallback 添加一个异步任务给worker执行，在执行完毕之后，调用onComplete；
+func (w *Worker) AddTaskWithCallback(
+	taskId task.TaskID,
+	schedule task.TaskSchedule,
+	_job task.Job,
+	onComplete func(taskId task.TaskID, task *task.Task),
+) task.TaskID {
+	_task, ok := w.tasks.Load(taskId)
+	// 存在旧的任务，移除旧的任务
+	if ok && _task.ScheduleId != 0 {
+		w.CancelTask(taskId)
+	}
 
-	return ticker
+	// 创建task，以及添加到cron任务列表中
+	ctx := w.app.CloneContextFromBase(w.ctx)
+	task := task.NewTask(ctx, schedule, _job)
+
+	// 是立即执行的任务，调用pool直接执行
+	if IsImmediateSchedule(schedule) {
+		w.tasks.Store(taskId, task)
+
+		w.pool.Submit(func() {
+			_task, ok := w.tasks.Load(taskId)
+			if !ok { // 不存在Key，说明task已经被cancel了
+				return
+			}
+
+			// 执行完毕之后，移除task
+			_task.Execute()
+			w.CancelTask(taskId)
+		})
+		return taskId
+	}
+
+	// delay task，丢入Cron中
+	task.ScheduleId = w.schedule.Schedule(task, cron.FuncJob(func() {
+		_task, ok := w.tasks.Load(taskId)
+		if !ok { // 不存在Key，说明task属于悬挂状态
+			w.schedule.Remove(_task.ScheduleId)
+			return
+		}
+		// 执行，并返回是否执行
+		_task.Execute()
+
+		// 如果没有下一次执行，移除任务，并回调onComplete
+		if !_task.HasNext() {
+			w.CancelTask(taskId) // 移除任务
+			if onComplete != nil {
+				onComplete(taskId, _task)
+			}
+		}
+	}))
+
+	w.tasks.Store(taskId, task)
+	return taskId
+}
+
+// SubmitTimer submits a task to be executed by a worker every interval until it reaches times.
+func (w *Worker) SubmitTimer(interval time.Duration, times int64, _job task.Job) task.TaskID {
+
+	taskId := task.TaskID(fmt.Sprintf("timer:%s", uuid.NewString()))
+	timerSchedule := newTimerSchedule(interval, times)
+	return w.AddTask(taskId, timerSchedule, _job)
+}
+
+// SubmitAfter submits a ASYNCHRONOUS task to be executed by a worker after a delay.
+//
+//	SubmitAfter 提交一个异步任务在delay之后执行。
+func (w *Worker) SubmitAfter(delay time.Duration, job task.Job) task.TaskID {
+	return w.SubmitTimer(delay, 1, job)
+}
+
+// SubmitLoop submits a ASYNCHRONOUS task to be executed by a worker every interval.
+//
+//	SubmitLoop 提交一个异步任务在每个interval时执行；
+func (w *Worker) SubmitLoop(interval time.Duration, job task.Job) task.TaskID {
+	return w.SubmitTimer(interval, -1, job)
 }
 
 func (w *Worker) parseSchedule(spec any) (cron.Schedule, error) {
@@ -204,31 +243,44 @@ func (w *Worker) parseSchedule(spec any) (cron.Schedule, error) {
 }
 
 // Cron add a cron job to the worker.
-// It's a NON-BLOCKING call, aka an ASYNCHRONOUS task.
-// (The job will use the app.BaseContext() when calling， or you defined the context by WithContext)
 //
 //	Cron 添加一个cron任务给worker执行，这是一个【异步】调用；
-//	（job执行时使用的是app.BaseContext()，或者你可以通过WithContext自定义context）
 //	支持的表达式： https://pkg.go.dev/github.com/robfig/cron/v3#hdr-Special_Characters
-func (w *Worker) Cron(spec any, job job.Job) (cron.EntryID, error) {
+func (w *Worker) Cron(spec any, _job task.Job) (task.TaskID, error) {
 	expr, err := w.parseSchedule(spec)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 
-	return w.schedule.Schedule(expr, cron.FuncJob(func() {
-		job(w.ctx)
-	})), nil
+	cronSchedule := newCronSchedule(expr)
+	taskId := task.TaskID(fmt.Sprintf("cron:%d", uuid.NewString()))
+	return w.AddTask(taskId, cronSchedule, _job), nil
 }
 
 // CronWith add a cron job to the worker with a chain caller: w.CronWith(func(ctx){...}).Every(30 * time.Second)
-// It's a NON-BLOCKING call, aka an ASYNCHRONOUS task.
-// (The job will use the app.BaseContext() when calling， or you defined the context by WithContext)
 //
-//	CronWith 添加一个cron的任务给worker执行（链式调用），这是一个【异步】调用：w.CronWith(job).Every(30 * time.Second)
-//	（job执行时使用的是app.BaseContext()，或者你可以通过WithContext自定义context）
-func (w *Worker) CronWith(job job.Job) schedule.Spec {
+//	CronWith 添加一个cron的任务给worker执行（链式调用）：w.CronWith(job).Every(30 * time.Second)
+func (w *Worker) CronWith(job task.Job) schedule.Spec {
 	return schedule.NewSpec(w.Cron, job)
+}
+
+// GetTask get a task by taskId
+func (w *Worker) GetTask(taskId task.TaskID) *task.Task {
+	task, ok := w.tasks.Load(taskId)
+	if !ok {
+		return nil
+	}
+	return task
+}
+
+// CancelTask cancel a task by taskId
+func (w *Worker) CancelTask(jobID task.TaskID) {
+	task, ok := w.tasks.LoadAndDelete(jobID)
+	if !ok {
+		return
+	} else if task.ScheduleId != 0 { // remove cron task
+		w.schedule.Remove(task.ScheduleId)
+	}
 }
 
 func (w *Worker) Start(ctx context.Context) error {
