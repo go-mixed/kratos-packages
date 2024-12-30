@@ -14,8 +14,10 @@ type onceWorker struct {
 	key string
 	// worker 外部创建时，必须是worker的clone体。因为会修改worker.store的属性
 	worker *Worker
-	// 使用key当 task.TaskID
-	keyAsTaskID bool
+	// 返回这个 task.TaskID
+	taskId task.TaskID
+	// override the key
+	override bool
 }
 
 var _ IWorker = (*onceWorker)(nil)
@@ -240,18 +242,27 @@ func (w *onceWorker) OnceForCluster(key string, opts ...onceOption) IWorker {
 }
 
 func (w *onceWorker) Submit(_job task.Job) task.TaskID {
-	taskId := task.TaskID(utils.If(w.keyAsTaskID, w.key, fmt.Sprintf("once:immediate:%s", w.key)))
+	taskId := utils.If(w.taskId != "", w.taskId, task.TaskID(fmt.Sprintf("once:immediate:%s", w.key)))
 	_immediateSchedule := newImmediateSchedule()
+
+	if w.GetTask(taskId) != nil && !w.override {
+		return taskId
+	}
 
 	return w.worker.AddTask(taskId, _immediateSchedule, w.wrapperOnceJob(w.worker.ctx, w.key, 5*time.Second, _job))
 }
 
 func (w *onceWorker) SubmitSync(job task.JobWithError) error {
+	// SubmitSync 没有taskId，不存在 override taskId
 	return w.worker.SubmitSync(w.wrapperOnceJobWithError(w.worker.ctx, w.key, 5*time.Second, job))
 }
 
 func (w *onceWorker) SubmitTimer(interval time.Duration, times int64, _job task.Job) task.TaskID {
-	taskId := task.TaskID(utils.If(w.keyAsTaskID, w.key, fmt.Sprintf("once:timer:%s", w.key)))
+	taskId := utils.If(w.taskId != "", w.taskId, task.TaskID(fmt.Sprintf("once:timer:%s", w.key)))
+	if w.GetTask(taskId) != nil && !w.override {
+		return taskId
+	}
+
 	_timerSchedule := newTimerSchedule(interval, times)
 	return w.worker.AddTaskWithCallback(
 		taskId,
@@ -278,9 +289,13 @@ func (w *onceWorker) Cron(spec any, _job task.Job) (task.TaskID, error) {
 		w.worker.logger.Errorf("[Cron]parse schedule %v failed: %v", spec, err)
 		return "", err
 	}
-	taskId := task.TaskID(utils.If(w.keyAsTaskID, w.key, fmt.Sprintf("once:cron:%s", w.key)))
-	_cronSchedule := newCronSchedule(_schedule)
 
+	taskId := utils.If(w.taskId != "", w.taskId, task.TaskID(fmt.Sprintf("once:cron:%s", w.key)))
+	if w.GetTask(taskId) != nil && !w.override {
+		return taskId, nil
+	}
+
+	_cronSchedule := newCronSchedule(_schedule)
 	return w.worker.AddTask(taskId, _cronSchedule, w.wrapperOnceCronJob(w.key, _cronSchedule, _job)), nil
 }
 
