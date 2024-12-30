@@ -2,11 +2,9 @@ package worker
 
 import (
 	"context"
-	"fmt"
 	"github.com/redis/go-redis/v9"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/server/schedule"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/server/task"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"time"
 )
 
@@ -14,8 +12,6 @@ type onceWorker struct {
 	key string
 	// worker 外部创建时，必须是worker的clone体。因为会修改worker.store的属性
 	worker *Worker
-	// 返回这个 task.TaskID
-	taskId task.TaskID
 	// override the key
 	override bool
 }
@@ -39,14 +35,14 @@ local now = redis.call('TIME')
 if not str or not js or type(js) ~= 'table'  then
 	js = {
 		app_id = app_id
-		created_at = now,
-		last_refresh_at = now,
+		created_at = now[1],
+		last_refresh_at = now[1],
 	}
 end
 
 if js['app_id'] == app_id then
-	js['last_refresh_at'] = now
-	redis.call('set', key, cjson.encode(js), 'px', expiration)
+	js['last_refresh_at'] = now[1]
+	redis.call('SET', key, cjson.encode(js), 'PX', expiration)
 	return true
 end
 
@@ -119,7 +115,7 @@ local expiration = tonumber(ARGV[3])
 local app_id = ARGV[4]
 local last = redis.call('get', key)
 local res = 0
-local created_at = redis.call('TIME')
+local created_at = redis.call('TIME')[1]
 
 if last then -- key 存在
 	local js = cjson.decode(last)
@@ -154,8 +150,6 @@ func (w *onceWorker) wrapperOnceCronJob(key string, _cronSchedule *cronSchedule,
 		return job
 	}
 
-	// 注册脚本
-	script := w.worker.store.Script(cronOnceScript)
 	// 为了确保cron的多个节点的时间一致，这里计算出redis服务器时间与本地时间的差值，
 	// 后面的now, nextTime都根据delta修正为redis服务器时间
 	delta := w.worker.store.ServerTimeDelta(context.Background())
@@ -166,12 +160,12 @@ func (w *onceWorker) wrapperOnceCronJob(key string, _cronSchedule *cronSchedule,
 	nextTime := _cronSchedule.Next(now)
 	expiration := nextTime.Sub(now) + 1*time.Second // 避免在执行时过期
 
-	ok, err := script.Run(w.worker.ctx,
+	ok, err := w.runScript(w.worker.ctx,
+		cronOnceScript,
 		[]string{key},
 		now.UnixNano(),            // ARGV[1]
 		nextTime.UnixNano(),       // ARGV[2]
 		expiration.Milliseconds(), // ARGV[3]
-		w.worker.app.ID(),         // ARGV[4]
 	).Int()
 
 	if err != nil { // redis报错只记录日志。
@@ -188,12 +182,12 @@ func (w *onceWorker) wrapperOnceCronJob(key string, _cronSchedule *cronSchedule,
 		nextTime = _cronSchedule.Next(now)
 		expiration = nextTime.Sub(now) + 1*time.Second
 
-		ok, err = script.Run(ctx,
+		ok, err = w.runScript(ctx,
+			cronOnceScript,
 			[]string{key},
 			now.UnixNano(),
 			nextTime.UnixNano(),
 			expiration.Milliseconds(),
-			w.worker.app.ID(),
 		).Int()
 
 		if err != nil { // 不能因为redis报错而跳过执行，只记录日志。
@@ -212,14 +206,12 @@ func (w *onceWorker) wrapperTimerJob(key string, interval time.Duration, job tas
 	if key == "" {
 		return job
 	}
-	// 注册脚本
-	script := w.worker.store.Script(onceJobScript)
 	// 先尝试加锁
-	_, _ = script.Run(w.worker.ctx, []string{key}, w.worker.app.ID(), time.Duration(float64(interval)*1.1)).Bool()
+	_, _ = w.runScript(w.worker.ctx, onceJobScript, []string{key}, w.worker.app.ID(), time.Duration(float64(interval)*1.1).Milliseconds()).Bool()
 
 	return func(ctx context.Context) {
 		// 判断自己是否能运行，并延长锁的过期时间
-		ok, err := script.Run(w.worker.ctx, []string{key}, w.worker.app.ID(), time.Duration(float64(interval)*1.1)).Bool()
+		ok, err := w.runScript(ctx, onceJobScript, []string{key}, w.worker.app.ID(), time.Duration(float64(interval)*1.1).Milliseconds()).Bool()
 		if ok || err != nil {
 			job(ctx)
 		}
@@ -242,7 +234,7 @@ func (w *onceWorker) OnceForCluster(key string, opts ...onceOption) IWorker {
 }
 
 func (w *onceWorker) Submit(_job task.Job) task.TaskID {
-	taskId := utils.If(w.taskId != "", w.taskId, task.TaskID(fmt.Sprintf("once:immediate:%s", w.key)))
+	taskId := task.TaskID(w.key)
 	_immediateSchedule := newImmediateSchedule()
 
 	if w.GetTask(taskId) != nil && !w.override {
@@ -258,7 +250,7 @@ func (w *onceWorker) SubmitSync(job task.JobWithError) error {
 }
 
 func (w *onceWorker) SubmitTimer(interval time.Duration, times int64, _job task.Job) task.TaskID {
-	taskId := utils.If(w.taskId != "", w.taskId, task.TaskID(fmt.Sprintf("once:timer:%s", w.key)))
+	taskId := task.TaskID(w.key)
 	if w.GetTask(taskId) != nil && !w.override {
 		return taskId
 	}
@@ -290,7 +282,7 @@ func (w *onceWorker) Cron(spec any, _job task.Job) (task.TaskID, error) {
 		return "", err
 	}
 
-	taskId := utils.If(w.taskId != "", w.taskId, task.TaskID(fmt.Sprintf("once:cron:%s", w.key)))
+	taskId := task.TaskID(w.key)
 	if w.GetTask(taskId) != nil && !w.override {
 		return taskId, nil
 	}

@@ -41,11 +41,11 @@ func (t *timerSchedule) RunTimes() int64 {
 }
 
 func (t *timerSchedule) CanRun() bool {
-	return t.runTimes.Load() < t.totalTimes
+	return t.totalTimes == -1 || t.runTimes.Load() < t.totalTimes
 }
 
 func (t *timerSchedule) HasNext() bool {
-	return t.runTimes.Load()+1 < t.totalTimes
+	return t.totalTimes == -1 || t.runTimes.Load()+1 < t.totalTimes
 }
 
 func (t *timerSchedule) Next(_time time.Time) time.Time {

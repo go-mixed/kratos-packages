@@ -32,12 +32,12 @@ type Worker struct {
 
 	pool           *workerpool.WorkerPool
 	schedule       *cron.Cron
-	scheduleParser cron.Parser
+	scheduleParser *cron.Parser
 	stopped        *atomic.Bool
 	ctx            context.Context
 
 	// 记录当前正在执行的任务
-	tasks utils.ConcurrentMap[task.TaskID, *task.Task]
+	tasks *utils.ConcurrentMap[task.TaskID, *task.Task]
 }
 
 var _ transport.Server = (*Worker)(nil)
@@ -69,11 +69,11 @@ func NewWorker(
 			cron.WithParser(scheduleParser),
 			cron.WithLogger(schedule.NewScheduleLogger(logger)),
 		),
-		scheduleParser: scheduleParser,
+		scheduleParser: &scheduleParser,
 		stopped:        &atomic.Bool{},
 		ctx:            app.BaseContext(),
 
-		tasks: utils.ConcurrentMap[task.TaskID, *task.Task]{},
+		tasks: &utils.ConcurrentMap[task.TaskID, *task.Task]{},
 	}
 }
 
@@ -90,6 +90,7 @@ func (w *Worker) clone() *Worker {
 		scheduleParser: w.scheduleParser,
 		stopped:        w.stopped,
 		ctx:            w.ctx,
+		tasks:          w.tasks,
 	}
 }
 
@@ -110,9 +111,8 @@ func (w *Worker) WithContext(ctx context.Context) IWorker {
 //	如果是cron/timer任务，表示在每次定时任务触发时只在一个节点执行。
 func (w *Worker) OnceForCluster(key string, opts ...onceOption) IWorker {
 	ow := &onceWorker{
-		key:         key,
-		worker:      w.clone(),
-		keyAsTaskID: false,
+		key:    key,
+		worker: w.clone(),
 	}
 
 	for _, opt := range opts {
@@ -285,6 +285,8 @@ func (w *Worker) CancelTask(jobID task.TaskID) {
 		return
 	} else if task.ScheduleId != 0 { // remove cron task
 		w.schedule.Remove(task.ScheduleId)
+		// try to delete the once task
+		_, _ = w.store.Del(task.GetContext(), string(jobID))
 	}
 }
 
