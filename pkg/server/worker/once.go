@@ -158,7 +158,7 @@ func (w *onceWorker) wrapperOnceCronJob(key string, _cronSchedule *cronSchedule,
 	// 比如：程序滚动发布时，上一个执行的key还在
 	now := time.Now().Add(delta)
 	nextTime := _cronSchedule.Next(now)
-	expiration := nextTime.Sub(now) + 1*time.Second // 避免在执行时过期
+	expiration := time.Duration(float64(nextTime.Sub(now)) * 1.1) // 避免在执行时过期
 
 	ok, err := w.runScript(w.worker.ctx,
 		cronOnceScript,
@@ -166,6 +166,7 @@ func (w *onceWorker) wrapperOnceCronJob(key string, _cronSchedule *cronSchedule,
 		now.UnixNano(),            // ARGV[1]
 		nextTime.UnixNano(),       // ARGV[2]
 		expiration.Milliseconds(), // ARGV[3]
+		w.worker.app.ID(),         // ARGV[4]
 	).Int()
 
 	if err != nil { // redis报错只记录日志。
@@ -180,14 +181,15 @@ func (w *onceWorker) wrapperOnceCronJob(key string, _cronSchedule *cronSchedule,
 		delta = w.worker.store.ServerTimeDelta(ctx)
 		now = time.Now().Add(delta)
 		nextTime = _cronSchedule.Next(now)
-		expiration = nextTime.Sub(now) + 1*time.Second
+		expiration = time.Duration(float64(nextTime.Sub(now)) * 1.1)
 
 		ok, err = w.runScript(ctx,
 			cronOnceScript,
 			[]string{key},
-			now.UnixNano(),
-			nextTime.UnixNano(),
-			expiration.Milliseconds(),
+			now.UnixNano(),            // ARGV[1]
+			nextTime.UnixNano(),       // ARGV[2]
+			expiration.Milliseconds(), // ARGV[3]
+			w.worker.app.ID(),         // ARGV[4]
 		).Int()
 
 		if err != nil { // 不能因为redis报错而跳过执行，只记录日志。
