@@ -113,7 +113,7 @@ local now = tonumber(ARGV[1])
 local next_at = tonumber(ARGV[2])
 local expiration = tonumber(ARGV[3])
 local app_id = ARGV[4]
-local last = redis.call('get', key)
+local last = redis.call('GET', key)
 local res = 0
 local created_at = redis.call('TIME')[1]
 
@@ -130,7 +130,7 @@ if last then -- key 存在
 	end
 	
 	-- 读取原来的created_at
-	if js ~= nil and js['created_at'] ~= nil then
+	if type(js) == 'table' and js['created_at'] ~= nil then
 		created_at = js['created_at']
 	end
 else -- key不存在，可以执行
@@ -139,7 +139,7 @@ end
 
 
 -- res > 0 表示可以执行，设置key和下次执行时间
-redis.call('set', key, cjson.encode({last_at = now, next_at = next_at, app_id = app_id, created_at = created_at}), 'px', expiration)
+redis.call('SET', key, cjson.encode({last_at = now, next_at = next_at, app_id = app_id, created_at = created_at}), 'PX', expiration)
 return res
 `
 
