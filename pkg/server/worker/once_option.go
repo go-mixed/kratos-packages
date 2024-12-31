@@ -2,9 +2,9 @@ package worker
 
 type onceOption func(once *onceWorker)
 
-// WithOverride 如果taskId相同，是否覆盖之前的任务，默认不覆盖
-func WithOverride(val bool) onceOption {
+// WithOverwrite 是否覆盖同名的taskId的任务，默认不覆盖
+func WithOverwrite(val bool) onceOption {
 	return func(once *onceWorker) {
-		once.override = val
+		once.overwrite = val
 	}
 }

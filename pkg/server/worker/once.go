@@ -12,8 +12,8 @@ type onceWorker struct {
 	key string
 	// worker 外部创建时，必须是worker的clone体。因为会修改worker.store的属性
 	worker *Worker
-	// override the key
-	override bool
+	// overwrite the task of the key
+	overwrite bool
 }
 
 var _ IWorker = (*onceWorker)(nil)
@@ -237,7 +237,7 @@ func (w *onceWorker) Submit(_job task.Job) task.TaskID {
 	taskId := task.TaskID(w.key)
 	_immediateSchedule := newImmediateSchedule()
 
-	if w.GetTask(taskId) != nil && !w.override {
+	if w.GetTask(taskId) != nil && !w.overwrite {
 		return taskId
 	}
 
@@ -245,13 +245,13 @@ func (w *onceWorker) Submit(_job task.Job) task.TaskID {
 }
 
 func (w *onceWorker) SubmitSync(job task.JobWithError) error {
-	// SubmitSync 没有taskId，不存在 override taskId
+	// SubmitSync 没有taskId，不存在 overwrite taskId
 	return w.worker.SubmitSync(w.wrapperOnceJobWithError(w.worker.ctx, w.key, 5*time.Second, job))
 }
 
 func (w *onceWorker) SubmitTimer(interval time.Duration, times int64, _job task.Job) task.TaskID {
 	taskId := task.TaskID(w.key)
-	if w.GetTask(taskId) != nil && !w.override {
+	if w.GetTask(taskId) != nil && !w.overwrite {
 		return taskId
 	}
 
@@ -283,7 +283,7 @@ func (w *onceWorker) Cron(spec any, _job task.Job) (task.TaskID, error) {
 	}
 
 	taskId := task.TaskID(w.key)
-	if w.GetTask(taskId) != nil && !w.override {
+	if w.GetTask(taskId) != nil && !w.overwrite {
 		return taskId, nil
 	}
 
