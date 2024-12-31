@@ -190,12 +190,13 @@ func (w *Worker) AddTaskWithCallback(
 		})
 		return taskId
 	}
+	var scheduleId cron.EntryID
 
 	// delay task，丢入Cron中
-	task.ScheduleId = w.schedule.Schedule(task, cron.FuncJob(func() {
+	scheduleId = w.schedule.Schedule(task, cron.FuncJob(func() {
 		_task, ok := w.tasks.Load(taskId)
-		if !ok { // 不存在Key，说明task属于悬挂状态
-			w.schedule.Remove(_task.ScheduleId)
+		if !ok { // 不存在Key，说明task属于悬挂状态，尝试移除scheduleId
+			w.schedule.Remove(scheduleId)
 			return
 		}
 		// 执行，并返回是否执行
@@ -210,6 +211,7 @@ func (w *Worker) AddTaskWithCallback(
 		}
 	}))
 
+	task.ScheduleId = scheduleId
 	w.tasks.Store(taskId, task)
 	return taskId
 }

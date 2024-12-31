@@ -29,12 +29,12 @@ local app_id = ARGV[1]
 local expiration = tonumber(ARGV[2]) or 0 -- 如果 ARGV[2] 不是数字，则设置为 0
 
 local str = redis.call('GET', key)
-local js = cjson.decode(str)
 local now = redis.call('TIME')
+local jsValid, js = pcall(cjson.decode, str)
 
-if not str or not js or type(js) ~= 'table'  then
+if not jsValid or not js or type(js) ~= 'table' then
 	js = {
-		app_id = app_id
+		app_id = app_id,
 		created_at = now[1],
 		last_refresh_at = now[1],
 	}
@@ -50,17 +50,17 @@ return false
 `
 
 // wrapperOnceJobWithError 执行1次job：保证在集群中，这个job执行期间内，同名key绝对只会执行1次
-func (w *onceWorker) wrapperOnceJobWithError(ctx context.Context, key string, interval time.Duration, job task.JobWithError) task.JobWithError {
+func (w *onceWorker) wrapperOnceJobWithError(ctx context.Context, key string, refreshInterval time.Duration, job task.JobWithError) task.JobWithError {
 	logger := w.worker.logger.WithContext(ctx)
 
 	// 通过lua来创建key，并设置过期时间，确保本job在当前时间段内只会被执行1次
-	ok, err := w.runScript(ctx, onceJobScript, []string{key}, w.worker.app.ID(), interval.Milliseconds()).Bool()
+	ok, err := w.runScript(ctx, onceJobScript, []string{key}, w.worker.app.ID(), refreshInterval.Milliseconds()).Bool()
 	if ok || err != nil {
 		return func(ctx context.Context) error {
 			// 创建一个ticker，用于给key续期
-			refreshKeyTaskId := w.worker.WithContext(ctx).SubmitLoop(interval/2, func(ctx context.Context) {
-				if err1 := w.runScript(ctx, onceJobScript, []string{key}, w.worker.app.ID(), interval.Milliseconds()).Err(); err1 != nil {
-					logger.Errorf("[locker]renewal key %s failed: %v", key, err1)
+			refreshKeyTaskId := w.worker.WithContext(ctx).SubmitLoop(refreshInterval/2, func(ctx context.Context) {
+				if err1 := w.runScript(ctx, onceJobScript, []string{key}, w.worker.app.ID(), refreshInterval.Milliseconds()).Err(); err1 != nil {
+					logger.Errorf("[wrapperOnceJobWithError]renewal key %s failed: %v", key, err1)
 				}
 			})
 			defer func() {
@@ -89,7 +89,7 @@ func (w *onceWorker) wrapperOnceJob(ctx context.Context, key string, refreshInte
 			// 创建一个ticker，用于给key续期
 			refreshKeyTaskId := w.worker.WithContext(ctx).SubmitLoop(refreshInterval/2, func(ctx context.Context) {
 				if err1 := w.runScript(ctx, onceJobScript, []string{key}, w.worker.app.ID(), refreshInterval.Milliseconds()).Err(); err1 != nil {
-					logger.Errorf("[locker]renewal key %s failed: %v", key, err1)
+					logger.Errorf("[wrapperOnceJob]renewal key %s failed: %v", key, err1)
 				}
 			})
 			defer func() {
@@ -118,8 +118,8 @@ local res = 0
 local created_at = redis.call('TIME')[1]
 
 if last then -- key 存在
-	local js = cjson.decode(last)
-	if js == nil then -- json不合法，可以执行
+	local jsValid, js = pcall(cjson.decode, last)
+	if not jsValid or not js or type(js) ~= 'table' then -- json不合法，可以执行
 		res = 2
 	elseif js['next_at'] == nil then -- next_at不存在，可以执行 
 		res = 3

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-kratos/kratos/v2"
-	stdLog "github.com/go-kratos/kratos/v2/log"
+	kratosLog "github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/tracing"
 	"github.com/pkg/errors"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/requestid"
@@ -22,7 +22,7 @@ type Option func(*Helper)
 // Helper is a logger helper.
 type Helper struct {
 	originalLogger Logger
-	kratosLogger   stdLog.Logger
+	kratosLogger   kratosLog.Logger
 	msgKey         string
 }
 
@@ -41,7 +41,7 @@ type stackTracer interface {
 }
 
 // LogValuer 提供日志valuer
-func appIDLogValuer() stdLog.Valuer {
+func appIDLogValuer() kratosLog.Valuer {
 	return func(ctx context.Context) any {
 		if app, ok := kratos.FromContext(ctx); ok {
 			return app.ID()
@@ -117,7 +117,7 @@ func (h *Helper) WithContext(ctx context.Context) *Helper {
 	return &Helper{
 		msgKey:         h.msgKey,
 		originalLogger: h.originalLogger,
-		kratosLogger:   stdLog.WithContext(ctx, h.kratosLogger),
+		kratosLogger:   kratosLog.WithContext(ctx, h.kratosLogger),
 	}
 }
 
