@@ -1,9 +1,7 @@
 package redis
 
 import (
-	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 )
 
 var (
@@ -19,6 +17,3 @@ type (
 )
 
 const Nil = redis.Nil
-
-var interfacesToStrings = utils.InterfacesToStrings
-var InstrumentTracing = redisotel.InstrumentTracing

@@ -4,15 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/samber/lo"
+	"golang.org/x/exp/constraints"
 	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
 )
-
-type Stringer interface {
-	String() string
-}
 
 // ToString 将任意类型转为字符串, 标量或标量的子类型可以直接转, 其它转为json的字符串
 // 注意: type ABC string 这种类型会走到default分支, 为了减少反射带来的性能负担, 对已知可以强转的类型, 可以自行强转: string(abc)
@@ -36,8 +33,8 @@ func ToString(v any, otherTypeAsJson bool) string {
 		uint, uint8, uint16, uint32, uint64,
 		float32, float64, complex64, complex128:
 		return fmt.Sprintf("%v", v)
-	case Stringer:
-		return v.(Stringer).String()
+	case fmt.Stringer:
+		return v.(fmt.Stringer).String()
 	case error:
 		return v.(error).Error()
 	default:
@@ -273,27 +270,30 @@ func AnyToUrlValues(data any, tag string) url.Values {
 		for i := 0; i < vOf.Len(); i++ {
 			result.Set(strconv.Itoa(i), ToString(vOf.Index(i).Interface(), true))
 		}
+	default:
+
 	}
 
 	return result
 }
 
-// InterfacesToStrings []any to []string
-func InterfacesToStrings(data []any) []string {
+// ToStringList []any to []string
+func ToStringList(data []any) []string {
 	return lo.Map(data, func(val any, _ int) string {
-		switch v := val.(type) {
-		case string:
-			return v
-		case []byte:
-			return string(v)
-		}
-		return fmt.Sprintf("%v", val)
+		return ToString(val, false)
 	})
 }
 
-// StringsToInterfaces []string to []any
-func StringsToInterfaces(data []string) []any {
-	return lo.Map(data, func(val string, _ int) any {
+// ToAnyList []P to []any
+func ToAnyList[P any](data []P) []any {
+	return lo.Map(data, func(val P, _ int) any {
 		return val
+	})
+}
+
+// ToNumberList []P to []R
+func ToNumberList[R constraints.Integer | constraints.Float, P constraints.Integer | constraints.Float](list []P) []R {
+	return lo.Map(list, func(val P, _ int) R {
+		return R(val)
 	})
 }

@@ -85,7 +85,7 @@ func (c *Redis) MGet(ctx context.Context, keys []string, actual any) ([]string, 
 		return nil, filterNil(err)
 	}
 
-	return interfacesToStrings(res.Val()), nil
+	return utils.ToStringList(res.Val()), nil
 }
 
 // Set 设置缓存，value为任意对象。

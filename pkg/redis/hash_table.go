@@ -122,7 +122,7 @@ func (c *Redis) HMGet(ctx context.Context, key string, actual any, fields ...str
 	if err != nil {
 		return nil, filterNil(err)
 	}
-	return utils.InterfacesToStrings(res.Val()), nil
+	return utils.ToStringList(res.Val()), nil
 }
 
 // HMSet 同时将多个 field-value (域-值)对设置到哈希表 key 中。
