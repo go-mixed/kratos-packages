@@ -8,19 +8,19 @@ import (
 
 var ErrPromiseArgument = errors.New("promise argument typing error")
 
-// JobEx 带ctx的Promise任务函数，用于 PromiseEx PromiseExAll PromiseExAny，可以在其它任务完成/报错的情况下，结束当前任务
-type JobEx[P any, R any] func(context.Context, P) (R, error)
+// Job 带ctx的Promise任务函数，用于 PromiseEx PromiseExAll PromiseExAny，可以在其它任务完成/报错的情况下，结束当前任务
+type Job[P any, R any] func(context.Context, P) (R, error)
 
 // All 并发运行所有任务，并返回所有任务的结果，传递给下一个Then的参数是[]R，
 //
 //	注意：如果1个任务报错，会立即调用reject，并且ctx会Done()，其它任务需要处理ctx来退出
 //	Example: PromiseAll(job1, job2)).Finally(...)
-func All[P any, R any](ctx context.Context, fns ...JobEx[P, R]) *FutureContext {
+func All[P any, R any](ctx context.Context, fns ...Job[P, R]) *FutureContext {
 	arg, ok := FromContext[P](ctx)
 	if !ok {
-		return ErrorFutureContext(ctx, ErrPromiseArgument)
+		return ErrorFuture(ErrPromiseArgument)
 	}
-	return NewFutureContext(ctx, nil).ThenAllEx(lo.Map(fns, func(fn JobEx[P, R], index int) func(ctx context.Context) (context.Context, error) {
+	return NewFutureContext(ctx, nil).ThenAllEx(lo.Map(fns, func(fn Job[P, R], index int) func(ctx context.Context) (context.Context, error) {
 		return func(ctx context.Context) (context.Context, error) {
 			res, err := fn(ctx, arg)
 			if err != nil {
@@ -59,12 +59,12 @@ func All[P any, R any](ctx context.Context, fns ...JobEx[P, R]) *FutureContext {
 //
 //	注意：如果1个任务完成/报错，ctx会Done()，其它任务需要处理ctx来退出
 //	Example: NewPromise().Then(PromiseAny(job1, job2)).Then(...)
-func Any[P any, R any](ctx context.Context, fns ...JobEx[P, R]) *FutureContext {
+func Any[P any, R any](ctx context.Context, fns ...Job[P, R]) *FutureContext {
 	arg, ok := FromContext[P](ctx)
 	if !ok {
-		return ErrorFutureContext(ctx, ErrPromiseArgument)
+		return ErrorFuture(ErrPromiseArgument)
 	}
-	return NewFutureContext(ctx, nil).ThenAnyEx(lo.Map(fns, func(fn JobEx[P, R], index int) func(ctx context.Context) (context.Context, error) {
+	return NewFutureContext(ctx, nil).ThenAnyEx(lo.Map(fns, func(fn Job[P, R], index int) func(ctx context.Context) (context.Context, error) {
 		return func(ctx context.Context) (context.Context, error) {
 			res, err := fn(ctx, arg)
 			if err != nil {
@@ -116,12 +116,12 @@ func Any[P any, R any](ctx context.Context, fns ...JobEx[P, R]) *FutureContext {
 // Chain 串行的Promise任务，前面的任务不报错，后面的任务才会执行
 //
 //	Example: Promise(job1, job2).Finally()
-func Chain[P any, R any](ctx context.Context, fns ...JobEx[P, R]) *FutureContext {
+func Chain[P any, R any](ctx context.Context, fns ...Job[P, R]) *FutureContext {
 	arg, ok := FromContext[P](ctx)
 	if !ok {
-		return ErrorFutureContext(ctx, ErrPromiseArgument)
+		return ErrorFuture(ErrPromiseArgument)
 	}
-	return NewFutureContext(ctx, nil).ThenEx(lo.Map(fns, func(fn JobEx[P, R], index int) func(ctx context.Context) (context.Context, error) {
+	return NewFutureContext(ctx, nil).ThenEx(lo.Map(fns, func(fn Job[P, R], index int) func(ctx context.Context) (context.Context, error) {
 		return func(ctx context.Context) (context.Context, error) {
 			res, err := fn(ctx, arg)
 			if err != nil {
