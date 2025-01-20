@@ -1,7 +1,8 @@
 package redis
 
 import (
-	"github.com/redis/go-redis/v9"
+	"github.com/redis/go-redis/extra/redisotel/v9"
+	
 )
 
 var (
@@ -17,3 +18,5 @@ type (
 )
 
 const Nil = redis.Nil
+
+var InstrumentTracing = redisotel.InstrumentTracing
