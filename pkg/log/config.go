@@ -22,13 +22,20 @@ type logConfig struct {
 }
 
 type fileConfig struct {
-	Path       string `json:"path,omitempty"`
-	Rotate     bool   `json:"rotate"`
-	MaxSize    int    `json:"max_size,omitempty"`
-	MaxAge     int    `json:"max_age,omitempty"`
-	MaxBackups int    `json:"max_backups,omitempty"`
-	LocalTime  bool   `json:"local_time,omitempty"`
-	Compress   bool   `json:"compress,omitempty"`
+	// path of the log file
+	Path string `json:"path,omitempty"`
+	// enable log rotation
+	Rotate bool `json:"rotate"`
+	// max size of the log file in MB
+	MaxSize int `json:"max_size,omitempty"`
+	// max days of the logs that can be retained
+	MaxAge int `json:"max_age,omitempty"`
+	// max number of old log files to retain
+	MaxBackups int `json:"max_backups,omitempty"`
+	// whether to use local time for back file, default is UTC
+	LocalTime bool `json:"local_time,omitempty"`
+	// whether to compress the log files
+	Compress bool `json:"compress,omitempty"`
 }
 
 type filterConfig struct {

@@ -32,7 +32,7 @@ func WithMultiLevelOutput(multi bool) zapSimpleOption {
 	}
 }
 
-// WithRotateLocalTime 日志切割是否使用本地时间
+// WithRotateLocalTime 日志切割的备份文件是否以本地时间来命名，默认为UTC时间
 func WithRotateLocalTime() zapSimpleOption {
 	return func(l *simpleLogConf) {
 		l.rotateConfig.LocalTime = true
@@ -46,21 +46,21 @@ func WithRotateCompress() zapSimpleOption {
 	}
 }
 
-// WithRotateMaxSize 最大切割日志大小
+// WithRotateMaxSize 最大切割日志大小（MB）
 func WithRotateMaxSize(maxSize int) zapSimpleOption {
 	return func(l *simpleLogConf) {
 		l.rotateConfig.MaxSize = maxSize
 	}
 }
 
-// WithRotateMaxAge 切割日志最大生命周期
+// WithRotateMaxAge 切割日志最大生命周期（日）
 func WithRotateMaxAge(maxAge int) zapSimpleOption {
 	return func(l *simpleLogConf) {
 		l.rotateConfig.MaxAge = maxAge
 	}
 }
 
-// WithRotateMaxBackups 切割日志最大备份数量
+// WithRotateMaxBackups 切割日志最大备份数量（个）
 func WithRotateMaxBackups(backups int) zapSimpleOption {
 	return func(l *simpleLogConf) {
 		l.rotateConfig.MaxBackups = backups
