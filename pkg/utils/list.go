@@ -82,6 +82,26 @@ func (l *List[T]) Back() *Element[T] {
 	return l.root.prev
 }
 
+// PopFront removes and returns the first element of list l or nil if the list is empty.
+func (l *List[T]) PopFront() *Element[T] {
+	if l.len == 0 {
+		return nil
+	}
+	e := l.root.next
+	l.remove(e)
+	return e
+}
+
+// PopBack removes and returns the last element of list l or nil if the list is empty.
+func (l *List[T]) PopBack() *Element[T] {
+	if l.len == 0 {
+		return nil
+	}
+	e := l.root.prev
+	l.remove(e)
+	return e
+}
+
 // lazyInit lazily initializes a zero List value.
 func (l *List[T]) lazyInit() {
 	if l.root.next == nil {
