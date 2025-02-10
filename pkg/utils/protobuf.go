@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"cmp"
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"reflect"
@@ -107,4 +108,19 @@ func CompareProtoBuf[P proto.Message](message1 P, message2 P, fieldName string) 
 		return cmp.Compare(val1.Float(), val2.Float())
 	}
 	return 0
+}
+
+// StringToProtoEnum 将enum的string名称转换为protobuf枚举类型
+func StringToProtoEnum[T protoreflect.Enum](enumVal T, enumName string) (T, error) {
+	enumType := enumVal.Type()
+	// 通过枚举类型的描述符查找枚举值描述符
+	valueDesc := enumType.Descriptor().Values().ByName(protoreflect.Name(enumName))
+	if valueDesc == nil {
+		var nilT T
+		return nilT, errors.New("enum value not found")
+	}
+
+	// 创建一个 protoreflect.Enum 类型的枚举值
+	protoEnum := enumType.New(valueDesc.Number())
+	return protoEnum.(T), nil
 }
