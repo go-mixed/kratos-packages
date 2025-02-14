@@ -108,6 +108,29 @@ func (t *ThreadPool) Submit(jobs ...func()) {
 	t.cond.Broadcast()
 }
 
+func (t *ThreadPool) SubmitWaitFor(jobs ...func()) {
+	if len(jobs) == 0 {
+		return
+	}
+	wg := sync.WaitGroup{}
+	wg.Add(len(jobs))
+
+	t.cond.L.Lock()
+
+	for _, job := range jobs {
+		job := job
+		t.jobs.PushBack(func() {
+			defer wg.Done()
+
+			job()
+		})
+	}
+	t.cond.Broadcast()
+	t.cond.L.Unlock()
+
+	wg.Wait()
+}
+
 // Reset resets the thread pool. (the running jobs won't be killed)
 func (t *ThreadPool) Reset() {
 	t.cond.L.Lock()
