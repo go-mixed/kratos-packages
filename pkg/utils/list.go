@@ -246,11 +246,27 @@ func (l *List[T]) PushBackList(other *List[T]) {
 	}
 }
 
+// PushBackValues inserts a value list at the back of list l.
+func (l *List[T]) PushBackValues(values ...T) {
+	l.lazyInit()
+	for _, v := range values {
+		l.insertValue(v, l.root.prev)
+	}
+}
+
 // PushFrontList inserts a copy of another list at the front of list l.
 // The lists l and other may be the same. They must not be nil.
 func (l *List[T]) PushFrontList(other *List[T]) {
 	l.lazyInit()
 	for i, e := other.Len(), other.Back(); i > 0; i, e = i-1, e.Prev() {
 		l.insertValue(e.Value, &l.root)
+	}
+}
+
+// PushFrontValues inserts a value list at the front of list l.
+func (l *List[T]) PushFrontValues(values ...T) {
+	l.lazyInit()
+	for _, v := range values {
+		l.insertValue(v, &l.root)
 	}
 }
