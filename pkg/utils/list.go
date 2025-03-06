@@ -60,7 +60,9 @@ func (l *List[T]) Init() *List[T] {
 }
 
 // NewList returns an initialized list.
-func NewList[T any]() *List[T] { return new(List[T]).Init() }
+func NewList[T any](values ...T) *List[T] {
+	return new(List[T]).Init().PushBackValues(values...)
+}
 
 // Len returns the number of elements of list l.
 // The complexity is O(1).
@@ -198,75 +200,103 @@ func (l *List[T]) InsertAfter(v T, mark *Element[T]) *Element[T] {
 // MoveToFront moves element e to the front of list l.
 // If e is not an element of l, the list is not modified.
 // The element must not be nil.
-func (l *List[T]) MoveToFront(e *Element[T]) {
+func (l *List[T]) MoveToFront(e *Element[T]) *List[T] {
 	if e.list != l || l.root.next == e {
-		return
+		return l
 	}
 	// see comment in List.Remove about initialization of l
 	l.move(e, &l.root)
+	return l
 }
 
 // MoveToBack moves element e to the back of list l.
 // If e is not an element of l, the list is not modified.
 // The element must not be nil.
-func (l *List[T]) MoveToBack(e *Element[T]) {
+func (l *List[T]) MoveToBack(e *Element[T]) *List[T] {
 	if e.list != l || l.root.prev == e {
-		return
+		return l
 	}
 	// see comment in List.Remove about initialization of l
 	l.move(e, l.root.prev)
+	return l
 }
 
 // MoveBefore moves element e to its new position before mark.
 // If e or mark is not an element of l, or e == mark, the list is not modified.
 // The element and mark must not be nil.
-func (l *List[T]) MoveBefore(e, mark *Element[T]) {
+func (l *List[T]) MoveBefore(e, mark *Element[T]) *List[T] {
 	if e.list != l || e == mark || mark.list != l {
-		return
+		return l
 	}
 	l.move(e, mark.prev)
+	return l
 }
 
 // MoveAfter moves element e to its new position after mark.
 // If e or mark is not an element of l, or e == mark, the list is not modified.
 // The element and mark must not be nil.
-func (l *List[T]) MoveAfter(e, mark *Element[T]) {
+func (l *List[T]) MoveAfter(e, mark *Element[T]) *List[T] {
 	if e.list != l || e == mark || mark.list != l {
-		return
+		return l
 	}
 	l.move(e, mark)
+	return l
 }
 
 // PushBackList inserts a copy of another list at the back of list l.
 // The lists l and other may be the same. They must not be nil.
-func (l *List[T]) PushBackList(other *List[T]) {
+func (l *List[T]) PushBackList(other *List[T]) *List[T] {
+	if other.Len() == 0 {
+		return l
+	}
+
 	l.lazyInit()
 	for i, e := other.Len(), other.Front(); i > 0; i, e = i-1, e.Next() {
 		l.insertValue(e.Value, l.root.prev)
 	}
+
+	return l
 }
 
 // PushBackValues inserts a value list at the back of list l.
-func (l *List[T]) PushBackValues(values ...T) {
+func (l *List[T]) PushBackValues(values ...T) *List[T] {
+	if len(values) == 0 {
+		return l
+	}
+
 	l.lazyInit()
 	for _, v := range values {
 		l.insertValue(v, l.root.prev)
 	}
+
+	return l
 }
 
 // PushFrontList inserts a copy of another list at the front of list l.
 // The lists l and other may be the same. They must not be nil.
-func (l *List[T]) PushFrontList(other *List[T]) {
+func (l *List[T]) PushFrontList(other *List[T]) *List[T] {
+	if other.Len() == 0 {
+		return l
+	}
+
 	l.lazyInit()
 	for i, e := other.Len(), other.Back(); i > 0; i, e = i-1, e.Prev() {
 		l.insertValue(e.Value, &l.root)
 	}
+
+	return l
 }
 
 // PushFrontValues inserts a value list at the front of list l.
-func (l *List[T]) PushFrontValues(values ...T) {
+func (l *List[T]) PushFrontValues(values ...T) *List[T] {
+	if len(values) == 0 {
+		return l
+	}
+
 	l.lazyInit()
 	for _, v := range values {
 		l.insertValue(v, &l.root)
 	}
+
+	return l
 }
