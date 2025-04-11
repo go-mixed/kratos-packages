@@ -20,6 +20,13 @@ type StreamWriter struct {
 	// 是否已经关闭
 	stop       atomic.Bool
 	bufferSize atomic.Int32
+
+	// lastSentAt is the time when the last data was sent.
+	lastSentAt time.Time
+	// lastSentBytes is the number of bytes sent in the last data.
+	lastSentBytes int
+	// sentBytes is the number of bytes sent in total.
+	sentBytes int
 }
 
 var _ io.WriteCloser = (*StreamWriter)(nil)
@@ -114,6 +121,8 @@ func (s *StreamWriter) Write(data []byte) (int, error) {
 	}
 
 	n, err := s.ctx.Response().Write(data)
+	s.sentBytes += n
+	s.lastSentBytes = n
 	if err != nil {
 		return n, err
 	}
@@ -121,6 +130,8 @@ func (s *StreamWriter) Write(data []byte) (int, error) {
 	if s.bufferSize.Add(int32(n)) >= s.options.flushSize {
 		s.Flush()
 	}
+
+	s.lastSentAt = time.Now()
 
 	return n, nil
 }
@@ -161,4 +172,19 @@ func (s *StreamWriter) WriteSse(sse Sse) error {
 	// Flush the buffer to send the data immediately.
 	s.Flush()
 	return err
+}
+
+// LastSentAt returns the time when the last data was sent.
+func (s *StreamWriter) LastSentAt() time.Time {
+	return s.lastSentAt
+}
+
+// LastSentBytes returns the number of bytes sent in the last data.
+func (s *StreamWriter) LastSentBytes() int {
+	return s.lastSentBytes
+}
+
+// SentBytes returns the number of bytes sent in total.
+func (s *StreamWriter) SentBytes() int {
+	return s.sentBytes
 }
