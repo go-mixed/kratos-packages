@@ -4,7 +4,6 @@ import (
 	"context"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/auth"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
-	"strings"
 
 	"github.com/go-kratos/kratos/v2/middleware"
 	"github.com/go-kratos/kratos/v2/transport"
@@ -24,18 +23,11 @@ func NewAuthMiddleware(authFunc authMiddlewareFunc, logger log.Logger) middlewar
 				return nil, auth.ErrWrongContext
 			}
 
-			authHeaderValue := strings.TrimSpace(transporter.RequestHeader().Get(auth.AuthorizationHeader))
-			if authHeaderValue == "" {
-				l.Errorf("requestToken is missing of \"%s\"", transporter.Operation())
-				return nil, auth.ErrMissingToken
-			}
+			requestToken := auth.StripAuthorization(transporter.RequestHeader().Get(auth.AuthorizationHeader))
+			if requestToken == "" {
+				l.Errorf("cannot get authorization")
 
-			// 从请求头中获取token，有Bearer开头的话去掉
-			var requestToken string
-			if !strings.HasPrefix(authHeaderValue, auth.BearerWord) {
-				requestToken = authHeaderValue
-			} else {
-				requestToken = strings.TrimSpace(authHeaderValue[len(auth.BearerWord):])
+				return nil, auth.ErrMissingToken
 			}
 
 			authImpl, err := authFunc(ctx, transporter, requestToken)

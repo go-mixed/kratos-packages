@@ -2,6 +2,7 @@ package auth
 
 import (
 	"github.com/go-kratos/kratos/v2/errors"
+	"strings"
 )
 
 const (
@@ -32,3 +33,21 @@ var (
 	ErrRefreshTokenInvalid = errors.Unauthorized(UnauthorizedReason, "refresh token is invalid or not found")
 	ErrForbidden           = errors.Forbidden(ForbiddenReason, "not allowed to access this resource")
 )
+
+// StripAuthorization strips the authorization prefix from the token.
+func StripAuthorization(token string) string {
+	authValue := strings.TrimSpace(token)
+	if authValue == "" {
+		return ""
+	}
+
+	// 从请求头中获取token，有Bearer开头的话去掉
+	var requestToken string
+	if !strings.HasPrefix(authValue, BearerWord) {
+		requestToken = authValue
+	} else {
+		requestToken = strings.TrimSpace(authValue[len(BearerWord):])
+	}
+
+	return requestToken
+}

@@ -90,6 +90,11 @@ func (c *Cache) WithRedis(client *redis.Client) *Cache {
 	return _c
 }
 
+// GetRedis 获取Redis
+func (c *Cache) GetRedis() *redis.Redis {
+	return c.predis
+}
+
 // Default 并返回使用默认值新的Cache。
 // 默认值为： keyPrefix: "", expiration: -1, saveEmptyOnRemember: false
 func (c *Cache) Default() *Cache {

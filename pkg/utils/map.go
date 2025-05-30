@@ -9,8 +9,19 @@ type ConcurrentMap[K comparable, V any] struct {
 	m sync.Map
 }
 
+func (m *ConcurrentMap[K, V]) Len() int {
+	var l int
+	m.Range(func(key K, value V) bool {
+		l += 1
+		return true
+	})
+	return l
+}
+
 // Delete 删除Key
-func (m *ConcurrentMap[K, V]) Delete(key K) { m.m.Delete(key) }
+func (m *ConcurrentMap[K, V]) Delete(key K) {
+	m.m.Delete(key)
+}
 
 // Has 判断Key是否存在
 func (m *ConcurrentMap[K, V]) Has(key K) bool {
@@ -48,9 +59,14 @@ func (m *ConcurrentMap[K, V]) Range(f func(key K, value V) bool) {
 }
 
 // Iterator 原子性的迭代器
-func (m *ConcurrentMap[K, V]) Iterator() iter.Seq2[K, V] {
+func (m *ConcurrentMap[K, V]) Iterator(fns ...MapFilterFunc[K, V]) iter.Seq2[K, V] {
+	fn := WrapMapFilterFunc(fns...)
 	return func(yield func(K, V) bool) {
 		m.Range(func(key K, value V) bool {
+			// 如果被过滤，则不调用yield，但是还是需要继续循环
+			if !fn(key, value) {
+				return true
+			}
 			return yield(key, value)
 		})
 	}
