@@ -1,4 +1,4 @@
-package websocket
+package base
 
 import "time"
 
@@ -16,7 +16,7 @@ type WsConfig struct {
 	MessageBufferSize int
 }
 
-func defaultWsConfig() *WsConfig {
+func DefaultWsConfig() *WsConfig {
 	return &WsConfig{
 		WriteTimeout:      10 * time.Second,
 		PongTimeout:       60 * time.Second,

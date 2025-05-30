@@ -1,4 +1,4 @@
-package websocket
+package server
 
 import (
 	"time"
@@ -8,24 +8,28 @@ import (
 
 type ServerOption func(o *Server)
 
+// WithNetwork 设置网络:tcp, udp, unix
 func WithNetwork(network string) ServerOption {
 	return func(s *Server) {
 		s.network = network
 	}
 }
 
+// WithAddress 设置监听地址: ip:port
 func WithAddress(addr string) ServerOption {
 	return func(s *Server) {
 		s.address = addr
 	}
 }
 
+// WithTimeout 设置超时时间
 func WithTimeout(timeout time.Duration) ServerOption {
 	return func(s *Server) {
 		s.timeout = timeout
 	}
 }
 
+// WithPath 监听路径，默认为 /ws
 func WithPath(path string) ServerOption {
 	return func(o *Server) {
 		o.path = path
@@ -36,19 +40,5 @@ func WithPath(path string) ServerOption {
 func WithLogger(logger *log.Helper) ServerOption {
 	return func(o *Server) {
 		o.logger = logger
-	}
-}
-
-// WithMaxWorkers 设置最大的worker数量，不设置则默认为cpu * 2
-func WithMaxWorkers(num int) ServerOption {
-	return func(o *Server) {
-		o.maxWorkers = num
-	}
-}
-
-func WithHub(hub IHub) ServerOption {
-	return func(o *Server) {
-		o.hub = hub
-		hub.SetServer(o)
 	}
 }
