@@ -1,0 +1,25 @@
+syntax = "proto3";
+package websocket;
+
+option go_package = "gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/proto;proto";
+
+import "google/protobuf/any.proto";
+
+
+message WebsocketGrpcRequest {
+  optional string message_id = 1;
+  string service = 2;
+  string method = 3;
+
+  google.protobuf.Any data = 5;
+}
+
+
+message WebsocketGrpcResponse {
+  optional string message_id = 1;
+  string service = 2;
+  string method = 3;
+  int32 code = 4;
+  string message = 5;
+  google.protobuf.Any data = 6;
+}

@@ -10,6 +10,7 @@ import (
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/requestid"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/base"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/connection"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/service"
 	"net"
 	"net/http"
 	"net/url"
@@ -26,6 +27,8 @@ import (
 var (
 	_ transport.Server     = (*Server)(nil)
 	_ transport.Endpointer = (*Server)(nil)
+	_ base.IHub            = (*Server)(nil)
+	_ base.IHandleCaller   = (*Server)(nil)
 )
 
 type Server struct {
@@ -37,7 +40,8 @@ type Server struct {
 
 	connections *connection.ConnectionManager
 	handlers    []base.IHandler
-	port        base.IWsPort
+	adapter     base.IAdapter
+	grpcService *service.GrpcService
 
 	cluster *wsCluster
 
@@ -57,13 +61,14 @@ type Server struct {
 func NewServer(
 	app *app.App,
 	cache *cache.Cache,
-	port base.IWsPort,
+	adapter base.IAdapter,
 
 	opts ...ServerOption) *Server {
 
 	s := &Server{
-		app:  app,
-		port: port,
+		app:      app,
+		adapter:  adapter,
+		handlers: nil,
 
 		connections: nil,
 		running:     atomic.Bool{},
@@ -106,6 +111,11 @@ func NewServer(
 	return s
 }
 
+// RegisterHandlers 注册handler
+func (s *Server) RegisterHandlers(handlers ...base.IHandler) {
+	s.handlers = append(s.handlers, handlers...)
+}
+
 // ServeHTTP upgrades http requests to websocket connections and dispatches them to be handled by the melody instance.
 //
 //	Http server的新建链接的入口，
@@ -138,13 +148,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !s.Running() {
-		logger.Error("[WS]ServeHTTP hub is closed")
+		logger.Error("[WS]ServeHTTP is closed")
 		_ = wsConn.WriteMessage(base.CloseMessage, []byte("服务器正在维护中"))
 		_ = wsConn.Close()
 		return
 	}
 
-	user, err := s.port.Authorize(ctx, r)
+	user, err := s.adapter.Authorize(ctx, r)
 	if err != nil {
 		logger.Errorf("[WS]ServeHTTP authenticate error, request = %+v", r, err)
 		_ = wsConn.WriteMessage(base.CloseMessage, []byte("认证失败："+err.Error()))
@@ -214,7 +224,7 @@ func (s *Server) makeConnection(ctx context.Context, r *http.Request, wsConn *ba
 	conn := connection.NewConnection(s, r, wsConn, s.logger, s.wsConf, user)
 
 	var err error
-	if conn, err = s.port.InvokeConnection(ctx, conn); err != nil {
+	if conn, err = s.adapter.InvokeConnection(ctx, conn); err != nil {
 		return nil, err
 	}
 

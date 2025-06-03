@@ -7,8 +7,6 @@ import (
 )
 
 type IHub interface {
-	RegisterHandlers(handlers ...IHandler)
-
 	Running() bool
 	GetConnections() IConnections
 	GetAllConnectionIDs(ctx context.Context) []ConnectionID
@@ -20,7 +18,7 @@ type IHub interface {
 	Close(ctx context.Context, exitMessage string, connIds ...ConnectionID)
 }
 
-type IWsPort interface {
+type IAdapter interface {
 	Authorize(ctx context.Context, r *http.Request) (auth.IAuth, error)
 	InvokeConnection(ctx context.Context, session IConnection) (IConnection, error)
 }

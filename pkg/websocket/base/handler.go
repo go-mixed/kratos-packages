@@ -5,24 +5,23 @@ import (
 )
 
 type IHandler interface {
-	PongHandler(context.Context, IConnection) error
-	ErrorHandler(context.Context, IConnection, error)
+	OnPong(context.Context, IConnection) error
+	OnError(context.Context, IConnection, error)
 
-	CloseHandler(context.Context, IConnection, int, string) error
-	ConnectHandler(context.Context, IConnection) error
-	DisconnectHandler(context.Context, IConnection) error
+	OnClose(ctx context.Context, conn IConnection, code int, closeMessage string) error
+	OnConnect(context.Context, IConnection) error
+	OnDisconnect(context.Context, IConnection) error
 
-	RecvMessageHandler(context.Context, IConnection, int, []byte) error
-	SendMessageHandler(context.Context, IEnvelope, SentConnections) error
+	OnRecvMessage(ctx context.Context, conn IConnection, messageType int, message []byte) error
+	OnSendMessage(context.Context, IEnvelope, SentConnections) error
 
-	StartHandler(context.Context)
-	StopHandler(context.Context)
+	OnStart(context.Context)
+	OnStop(context.Context)
 }
 
 type IHandleCaller interface {
 	CallPongHandler(conn IConnection) error
 	CallRecvMessageHandler(conn IConnection, msgType int, msg []byte) error
-	CallSendMessageHandler(ctx context.Context, envelope IEnvelope, sentSessions SentConnections) error
 	CallErrorHandler(conn IConnection, err error)
 	CallCloseHandler(conn IConnection, code int, text string) error
 }
@@ -31,25 +30,25 @@ type UnimplementedWSHandler struct{}
 
 var _ IHandler = (*UnimplementedWSHandler)(nil)
 
-func (s *UnimplementedWSHandler) PongHandler(ctx context.Context, conn IConnection) error {
+func (s *UnimplementedWSHandler) OnPong(ctx context.Context, conn IConnection) error {
 	return nil
 }
-func (s *UnimplementedWSHandler) ErrorHandler(ctx context.Context, conn IConnection, err error) {
+func (s *UnimplementedWSHandler) OnError(ctx context.Context, conn IConnection, err error) {
 }
-func (s *UnimplementedWSHandler) CloseHandler(ctx context.Context, conn IConnection, i int, error string) error {
+func (s *UnimplementedWSHandler) OnClose(ctx context.Context, conn IConnection, i int, error string) error {
 	return nil
 }
-func (s *UnimplementedWSHandler) ConnectHandler(ctx context.Context, conn IConnection) error {
+func (s *UnimplementedWSHandler) OnConnect(ctx context.Context, conn IConnection) error {
 	return nil
 }
-func (s *UnimplementedWSHandler) DisconnectHandler(ctx context.Context, conn IConnection) error {
+func (s *UnimplementedWSHandler) OnDisconnect(ctx context.Context, conn IConnection) error {
 	return nil
 }
-func (s *UnimplementedWSHandler) RecvMessageHandler(ctx context.Context, conn IConnection, i int, bytes []byte) error {
+func (s *UnimplementedWSHandler) OnRecvMessage(ctx context.Context, conn IConnection, i int, bytes []byte) error {
 	return nil
 }
-func (s *UnimplementedWSHandler) SendMessageHandler(ctx context.Context, e IEnvelope, sentSessions SentConnections) error {
+func (s *UnimplementedWSHandler) OnSendMessage(ctx context.Context, e IEnvelope, sentSessions SentConnections) error {
 	return nil
 }
-func (s *UnimplementedWSHandler) StartHandler(ctx context.Context) {}
-func (s *UnimplementedWSHandler) StopHandler(ctx context.Context)  {}
+func (s *UnimplementedWSHandler) OnStart(ctx context.Context) {}
+func (s *UnimplementedWSHandler) OnStop(ctx context.Context)  {}

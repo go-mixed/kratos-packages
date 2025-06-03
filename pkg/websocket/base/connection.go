@@ -5,6 +5,7 @@ import (
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/auth"
 	"iter"
 	"net"
+	"net/http"
 	"time"
 )
 
@@ -36,13 +37,15 @@ type IConnection interface {
 	GetMetadata(key string) (any, bool)
 	HasMetadata(key string) bool
 	MustGetMetadata(key string) any
+	MetadataIterator() iter.Seq2[string, any]
 
+	GetRequest() *http.Request
 	GetUser() auth.IAuth
 	GetRemoteAddr() net.Addr
 	GetClientIP() string
 	GetRequestId() string
 
-	Closed() bool
+	IsClosed() bool
 	Close()
 
 	GetLastSendAt() time.Time
@@ -52,8 +55,10 @@ type IConnection interface {
 	SetObsolete()
 	IsObsolete() bool
 
-	String() string
 	GetID() ConnectionID
+	SetID(id ConnectionID)
+
+	String() string
 }
 
 type IConnections interface {

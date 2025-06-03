@@ -12,6 +12,7 @@ import (
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/base"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/envelope"
+	"iter"
 	"net"
 	"net/http"
 	"strconv"
@@ -100,6 +101,14 @@ func (s *Connection) initial(
 		s.SetMetadata("version", version)
 	}
 
+	// 将x-md-的头写入metadata中
+	for k := range r.Header {
+		k = strings.ToLower(k) // 小写
+		if strings.HasPrefix(k, "x-md-") {
+			s.SetMetadata(k, r.Header.Get(k))
+		}
+	}
+
 }
 
 func (s *Connection) Context() context.Context {
@@ -129,7 +138,7 @@ func (s *Connection) Write(envelope base.IEnvelope) error {
 
 	var err error
 
-	if s.Closed() {
+	if s.IsClosed() {
 		err = errors.Errorf("try to write to a closed connection. connection = %s. message = %+v", s, envelope)
 		// 调用错误处理函数
 		s.handleCaller.CallErrorHandler(s, err)
@@ -164,7 +173,7 @@ func (s *Connection) Write(envelope base.IEnvelope) error {
 //
 //	ping发送失败，不会尝试关闭connection
 func (s *Connection) startPing() {
-	if !s.Closed() {
+	if !s.IsClosed() {
 		// 先创建下一个ping消息的定时器。
 		// 为了记录fails的次数，此处无需主动Stop。
 		// 等到下一次执行startPing时，会检查Closed，如果已经关闭，就不会再创建定时器了，所以不存在泄漏。
@@ -213,7 +222,7 @@ func (s *Connection) startPing() {
 //			// doWrite已经更新最近一次发送消息的时间，此处调用handler
 //			// ping/close消息不需要调用handler
 //			if msg.t == TextMessage || msg.t == BinaryMessage {
-//				_ = s.handleCaller.CallSendMessageHandler(s, msg.t, msg.msg)
+//				_ = s.handleCaller.callSendMessageHandler(s, msg.t, msg.msg)
 //			}
 //		case <-ticker.C:
 //			s.ping() // 发送ping消息，走的是doWrite
@@ -269,7 +278,7 @@ loop:
 	// 【阻塞】读取conn的消息，这里不会收到pong消息，因为pong消息是在SetPongHandler中处理的
 	for {
 		// 超时、或服务器/客户端发起关闭，都会导致ReadMessage返回错误
-		t, message, err := s.conn.ReadMessage()
+		typo, message, err := s.conn.ReadMessage()
 
 		// 如果有错误，尝试优雅关闭
 		// 然后退出循环
@@ -310,7 +319,7 @@ loop:
 		s.fails.Store(0)
 		// 先更新最近一次接收消息的时间，再调用handler
 		s.touchLastRecvAt()
-		_ = s.handleCaller.CallRecvMessageHandler(s, t, message)
+		_ = s.handleCaller.CallRecvMessageHandler(s, typo, message)
 
 		select {
 		case <-s.quitCh: // quitCh is closed when the connection is closed
@@ -325,7 +334,7 @@ loop:
 //
 //	这个方法会写一个CloseMessage到conn中
 func (s *Connection) TryClose(msg string) error {
-	if !s.Closed() {
+	if !s.IsClosed() {
 		return s.Write(envelope.NewOperationEnvelope(base.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, msg)))
 	}
 
@@ -359,9 +368,18 @@ func (s *Connection) MustGetMetadata(key string) any {
 	panic("Key \"" + key + "\" not exists in connection = " + s.String())
 }
 
+func (s *Connection) MetadataIterator() iter.Seq2[string, any] {
+	return s.metadata.Iterator()
+}
+
 // GetID returns the connection ID.
 func (s *Connection) GetID() base.ConnectionID {
 	return s.ID
+}
+
+// SetID sets the connection ID.
+func (s *Connection) SetID(id base.ConnectionID) {
+	s.ID = id
 }
 
 // GetUser 返回当前connection的用户
@@ -406,10 +424,15 @@ func (s *Connection) GetRequestId() string {
 	return requestid.FromContext(s.ctx)
 }
 
-// Closed returns true if the connection is closed.
+// GetRequest returns the request.
+func (s *Connection) GetRequest() *http.Request {
+	return s.Request
+}
+
+// IsClosed returns true if the connection is closed.
 //
 //	在ServeHTTP结束后，open会设置为false
-func (s *Connection) Closed() bool {
+func (s *Connection) IsClosed() bool {
 	return !s.open.Load()
 }
 
