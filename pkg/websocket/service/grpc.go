@@ -1,7 +1,6 @@
 package service
 
 import (
-	"buf.build/go/protovalidate"
 	"context"
 	"fmt"
 	"github.com/go-kratos/kratos/v2/encoding/json"
@@ -87,11 +86,6 @@ func (g *GrpcService) OnRecvMessage(ctx context.Context, connection base.IConnec
 
 	if err := g.unmarshal(messageType, message, request); err != nil {
 		g.sendError(ctx, connection, messageType, request, base.ErrInvalidEnvelope)
-		return nil
-	}
-
-	if err := protovalidate.Validate(request); err != nil {
-		g.sendError(ctx, connection, messageType, request, errors.BadRequest("", err.Error()).WithCause(err))
 		return nil
 	}
 
