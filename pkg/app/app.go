@@ -7,6 +7,7 @@ import (
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/auth"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/requestid"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/sign"
+	wsBase "gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/base"
 )
 
 // Version 修改版本执行： go build -ldflags "-X gopkg.in/go-mixed/kratos-packages.v2/pkg/app.Version=x.y.z"
@@ -105,6 +106,11 @@ func (a *App) CloneContextFromBase(fromCtx context.Context) context.Context {
 	// 尝试从fromCtx中获取sign
 	if _sign, ok := sign.FromContext(fromCtx); ok {
 		ctx = sign.NewContext(ctx, _sign)
+	}
+
+	// 尝试从fromCtx中获取websocket
+	if _ws, ok := wsBase.FromContext(fromCtx); ok {
+		ctx = wsBase.NewContext(ctx, _ws)
 	}
 
 	return ctx

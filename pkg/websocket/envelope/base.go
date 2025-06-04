@@ -147,7 +147,7 @@ func MarshalIEnvelope(e base.IEnvelope) ([]byte, error) {
 		bob, _ = encoding.Marshal(e)
 		module = className
 	} else {
-		return nil, errors.New("invalid envelope")
+		return nil, errors.New("marshal invalid envelope")
 	}
 
 	return json.Marshal(&envelopeWrapper{
@@ -167,5 +167,5 @@ func UnmarshalIEnvelope(data []byte) (base.IEnvelope, error) {
 		return encoding.Unmarshal(w.Envelope)
 	}
 
-	return nil, errors.New("invalid envelope")
+	return nil, errors.New("unmarshal invalid envelope")
 }

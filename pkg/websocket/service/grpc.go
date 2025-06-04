@@ -3,25 +3,20 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/go-kratos/kratos/v2/encoding/json"
 	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/app"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/server/worker"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/base"
 	wsProto "gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/proto"
-	"strings"
 )
 
 type GrpcService struct {
 	app      *app.App
-	worker   worker.IWorker
 	logger   *log.Helper
 	services map[string]*grpcServiceInfo
 
@@ -51,13 +46,11 @@ type grpcServiceInfo struct {
 func NewGrpcService(
 	app *app.App,
 	logger log.Logger,
-	worker worker.IWorker,
 	hub base.IHub,
 ) *GrpcService {
 	return &GrpcService{
 		app:      app,
 		logger:   log.NewModuleHelper(logger, "websocket/service/grpc"),
-		worker:   worker,
 		hub:      hub,
 		services: make(map[string]*grpcServiceInfo),
 	}
@@ -106,29 +99,36 @@ func (g *GrpcService) OnDisconnect(ctx context.Context, connection base.IConnect
 func (g *GrpcService) OnRecvMessage(ctx context.Context, connection base.IConnection, messageType int, message []byte) error {
 	request := &wsProto.WebsocketGrpcRequest{}
 
-	if err := g.unmarshal(messageType, message, request); err != nil {
-		g.sendError(ctx, connection, messageType, request, base.ErrInvalidEnvelope)
+	if err := grpcUnmarshal(messageType, message, request); err != nil {
+		g.sendError(ctx, connection, messageType, request, err)
 		return nil
 	}
 
-	pbService, err := g.getServiceMethod(request.GetService(), request.GetMethod())
+	method, err := g.getServiceMethod(request.GetService(), request.GetMethod())
 	if err != nil {
 		g.sendError(ctx, connection, messageType, request, err)
 		return nil
 	}
 
-	if pbService.requestStream || pbService.responseStream {
+	// 使用协程处理
+	go func(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, method grpcMethodInfo) {
+		var response proto.Message
+		var err error
+		if method.requestStream || method.responseStream {
+			err = g.callStreamService(ctx, connection, messageType, request, method)
+		} else {
+			response, err = g.callService(ctx, request, method)
+		}
 
-	} else {
-		// 同步调用
-		if response, err := g.callService(ctx, request, pbService); err != nil {
+		if err != nil {
 			g.sendError(ctx, connection, messageType, request, err)
 		} else if response != nil {
-			if err = g.sendResponse(ctx, connection, messageType, request, response); err != nil {
+			if err = sendGrpcResponse(ctx, g.hub, connection, messageType, request, response); err != nil {
 				g.sendError(ctx, connection, messageType, request, err)
 			}
 		}
-	}
+
+	}(ctx, connection, messageType, request, method)
 
 	return nil
 }
@@ -143,25 +143,6 @@ func (g *GrpcService) OnStart(ctx context.Context) {
 
 func (g *GrpcService) OnStop(ctx context.Context) {
 
-}
-
-func (g *GrpcService) unmarshal(messageType int, data []byte, in proto.Message) error {
-	if messageType == base.BinaryMessage {
-		return proto.Unmarshal(data, in)
-	} else if messageType == base.TextMessage {
-		return json.UnmarshalOptions.Unmarshal(data, in)
-	}
-	return nil
-}
-
-func (g *GrpcService) marshal(messageType int, message proto.Message) []byte {
-	var bytes []byte
-	if messageType == base.BinaryMessage {
-		bytes, _ = proto.Marshal(message)
-	} else if messageType == base.TextMessage {
-		bytes, _ = json.MarshalOptions.Marshal(message)
-	}
-	return bytes
 }
 
 func (g *GrpcService) getServiceMethod(serviceName string, methodName string) (grpcMethodInfo, error) {
@@ -192,31 +173,10 @@ func (g *GrpcService) getServiceMethod(serviceName string, methodName string) (g
 	return pbService, nil
 }
 
-// getRequestData 获取请求的Data，转成proto.Message
-func (g *GrpcService) getRequestData(request *wsProto.WebsocketGrpcRequest) func(any) error {
-	return func(in any) error {
-		msg, ok := in.(proto.Message)
-		if request.Data == nil || !ok {
-			return nil
-		}
-
-		if request.Data.TypeUrl == "" {
-			request.Data.TypeUrl = "type.googleapis.com/" + string(msg.ProtoReflect().Descriptor().FullName())
-		}
-
-		if err := request.GetData().UnmarshalTo(msg); err != nil {
-			return err
-		}
-
-		utils.PtrElement(in).Set(utils.PtrElement(msg))
-		return nil
-	}
-}
-
 // callService 同步调用服务
-func (g *GrpcService) callService(ctx context.Context, request *wsProto.WebsocketGrpcRequest, pbService grpcMethodInfo) (proto.Message, error) {
-	data := g.getRequestData(request)
-	response, err := pbService.methodDesc.Handler(pbService.server, ctx, data, nil)
+func (g *GrpcService) callService(ctx context.Context, request *wsProto.WebsocketGrpcRequest, method grpcMethodInfo) (proto.Message, error) {
+	data := getGrpcRequestData(request)
+	response, err := method.methodDesc.Handler(method.server, ctx, data, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -227,11 +187,12 @@ func (g *GrpcService) callService(ctx context.Context, request *wsProto.Websocke
 	return _response, nil
 }
 
+var _ grpc.ServerStream = (*grpcStream)(nil)
+
 // callStreamService 调用流式服务
-func (g *GrpcService) callStreamService(ctx context.Context, request *wsProto.WebsocketGrpcRequest, pbService grpcMethodInfo) error {
-	//g.worker.WithContext(ctx).Submit(func(ctx context.Context) {
-	return nil
-	//})
+func (g *GrpcService) callStreamService(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, method grpcMethodInfo) error {
+	stream := &grpcStream{ctx: ctx, hub: g.hub, connection: connection, request: request, method: method, messageType: messageType}
+	return method.streamDesc.Handler(method.server, stream)
 }
 
 func (g *GrpcService) sendError(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, err error) {
@@ -253,7 +214,7 @@ func (g *GrpcService) sendError(ctx context.Context, connection base.IConnection
 		}).Else(""),
 	}
 
-	bytes := g.marshal(messageType, response)
+	bytes := grpcMarshal(messageType, response)
 
 	if messageType == base.BinaryMessage {
 		err = g.hub.SendBinary(ctx, bytes, connection.GetID())
@@ -264,33 +225,4 @@ func (g *GrpcService) sendError(ctx context.Context, connection base.IConnection
 	if err != nil {
 		g.logger.WithContext(ctx).Errorf("send error response error: %v", err)
 	}
-}
-
-func (g *GrpcService) sendResponse(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, responseData proto.Message) error {
-	data, _ := anypb.New(responseData)
-
-	url := data.GetTypeUrl()
-	url = strings.ReplaceAll(url, "type.googleapis.com/", "")
-
-	response := &wsProto.WebsocketGrpcResponse{
-		Service: request.Service,
-		Method:  request.Method,
-		Type:    url,
-		MessageId: lo.If(request.MessageId != nil && request.GetMessageId() != "", request.MessageId).ElseF(func() *string {
-			return utils.Ptr(uuid.New().String())
-		}),
-		Code:    0,
-		Message: "",
-		Data:    data,
-	}
-
-	bytes := g.marshal(messageType, response)
-	var err error
-	if messageType == base.BinaryMessage {
-		err = g.hub.SendBinary(ctx, bytes, connection.GetID())
-	} else if messageType == base.TextMessage {
-		err = g.hub.SendText(ctx, string(bytes), connection.GetID())
-	}
-
-	return err
 }

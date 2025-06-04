@@ -104,9 +104,9 @@ type WebsocketGrpcResponse struct {
 	Service       string                 `protobuf:"bytes,2,opt,name=service,proto3" json:"service,omitempty"`
 	Method        string                 `protobuf:"bytes,3,opt,name=method,proto3" json:"method,omitempty"`
 	Type          string                 `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
-	Code          int32                  `protobuf:"varint,5,opt,name=code,proto3" json:"code,omitempty"`
-	Message       string                 `protobuf:"bytes,6,opt,name=message,proto3" json:"message,omitempty"`
-	Data          *anypb.Any             `protobuf:"bytes,7,opt,name=data,proto3" json:"data,omitempty"`
+	Data          *anypb.Any             `protobuf:"bytes,5,opt,name=data,proto3" json:"data,omitempty"`
+	Code          int32                  `protobuf:"varint,10,opt,name=code,proto3" json:"code,omitempty"`
+	Message       string                 `protobuf:"bytes,11,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -169,6 +169,13 @@ func (x *WebsocketGrpcResponse) GetType() string {
 	return ""
 }
 
+func (x *WebsocketGrpcResponse) GetData() *anypb.Any {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
 func (x *WebsocketGrpcResponse) GetCode() int32 {
 	if x != nil {
 		return x.Code
@@ -181,13 +188,6 @@ func (x *WebsocketGrpcResponse) GetMessage() string {
 		return x.Message
 	}
 	return ""
-}
-
-func (x *WebsocketGrpcResponse) GetData() *anypb.Any {
-	if x != nil {
-		return x.Data
-	}
-	return nil
 }
 
 var File_pkg_websocket_proto_ws_proto protoreflect.FileDescriptor
@@ -208,10 +208,11 @@ const file_pkg_websocket_proto_ws_proto_rawDesc = "" +
 	"message_id\x18\x01 \x01(\tH\x00R\tmessageId\x88\x01\x01\x12\x18\n" +
 	"\aservice\x18\x02 \x01(\tR\aservice\x12\x16\n" +
 	"\x06method\x18\x03 \x01(\tR\x06method\x12\x12\n" +
-	"\x04type\x18\x04 \x01(\tR\x04type\x12\x12\n" +
-	"\x04code\x18\x05 \x01(\x05R\x04code\x12\x18\n" +
-	"\amessage\x18\x06 \x01(\tR\amessage\x12(\n" +
-	"\x04data\x18\a \x01(\v2\x14.google.protobuf.AnyR\x04dataB\r\n" +
+	"\x04type\x18\x04 \x01(\tR\x04type\x12(\n" +
+	"\x04data\x18\x05 \x01(\v2\x14.google.protobuf.AnyR\x04data\x12\x12\n" +
+	"\x04code\x18\n" +
+	" \x01(\x05R\x04code\x12\x18\n" +
+	"\amessage\x18\v \x01(\tR\amessageB\r\n" +
 	"\v_message_idB\x96\x01\n" +
 	"\rcom.websocketB\aWsProtoP\x01Z8gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/proto\xa2\x02\x03WXX\xaa\x02\tWebsocket\xca\x02\tWebsocket\xe2\x02\x15Websocket\\GPBMetadata\xea\x02\tWebsocketb\x06proto3"
 

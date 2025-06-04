@@ -21,8 +21,8 @@ message WebsocketGrpcResponse {
   string service = 2;
   string method = 3;
   string type  = 4;
+  google.protobuf.Any data = 5;
 
-  int32 code = 5;
-  string message = 6;
-  google.protobuf.Any data = 7;
+  int32 code = 10;
+  string message = 11;
 }
