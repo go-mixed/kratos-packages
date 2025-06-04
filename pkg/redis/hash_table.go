@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 )
 
@@ -53,7 +54,7 @@ func (c *Redis) HGetAll(ctx context.Context, key string, actual any) (map[string
 	key = c.formatKey(key)
 	res := c.GetRedisCmd(ctx).HGetAll(ctx, key)
 
-	err := utils.IfFunc(actual != nil, func() error { return res.Scan(actual) }, func() error { return res.Err() })
+	err := lo.IfF(actual != nil, func() error { return res.Scan(actual) }).ElseF(func() error { return res.Err() })
 	if err != nil {
 		return nil, filterNil(err)
 	}
@@ -118,7 +119,7 @@ func (c *Redis) HMGet(ctx context.Context, key string, actual any, fields ...str
 	key = c.formatKey(key) // fields是子field，不需要format
 	res := c.GetRedisCmd(ctx).HMGet(ctx, key, fields...)
 
-	err := utils.IfFunc(actual != nil, func() error { return res.Scan(actual) }, func() error { return res.Err() })
+	err := lo.IfF(actual != nil, func() error { return res.Scan(actual) }).ElseF(func() error { return res.Err() })
 	if err != nil {
 		return nil, filterNil(err)
 	}

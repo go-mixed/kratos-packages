@@ -35,9 +35,9 @@ func (c *ModernRedis[T]) makeT(val string) (T, error) {
 
 	var t T = utils.New[T]()
 
-	err := utils.IfFunc(utils.IsPtr(t), func() error {
+	err := lo.IfF(utils.IsPtr(t), func() error {
 		return Scan(val, t)
-	}, func() error {
+	}).ElseF(func() error {
 		return Scan(val, &t)
 	})
 
@@ -54,9 +54,9 @@ func (c *ModernRedis[T]) makeMap(keys []string, values []string) (map[string]T, 
 	for i, key := range keys {
 		var t T = utils.New[T]()
 
-		err := utils.IfFunc(utils.IsPtr(t), func() error {
+		err := lo.IfF(utils.IsPtr(t), func() error {
 			return Scan(values[i], t)
-		}, func() error {
+		}).ElseF(func() error {
 			return Scan(values[i], &t)
 		})
 		if err != nil {
@@ -72,9 +72,9 @@ func (c *ModernRedis[T]) makeSlice(values []string) ([]T, error) {
 	var ts []T
 	for _, s := range values {
 		var t T = utils.New[T]()
-		err := utils.IfFunc(utils.IsPtr(t), func() error {
+		err := lo.IfF(utils.IsPtr(t), func() error {
 			return Scan(s, t)
-		}, func() error {
+		}).ElseF(func() error {
 			return Scan(s, &t)
 		})
 		if err != nil {

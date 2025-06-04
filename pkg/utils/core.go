@@ -2,7 +2,6 @@ package utils
 
 import (
 	"reflect"
-	"sync"
 )
 
 // IsNil 指针是否为nil
@@ -20,7 +19,7 @@ func IsZero(v any) bool {
 	if v == nil {
 		return true
 	}
-	valOf := reflect.ValueOf(v)
+	valOf := PtrElement(v)
 	switch valOf.Kind() {
 	case reflect.Slice, reflect.Map, reflect.Array:
 		return valOf.Len() == 0
@@ -35,50 +34,6 @@ func IsZero(v any) bool {
 func IsZeroT[T comparable](v T) bool {
 	var zero T
 	return v == zero
-}
-
-// If 条件判断，类似三元运算符
-func If[T any](condition bool, trueValue, falseValue T) T {
-	if condition {
-		return trueValue
-	}
-	return falseValue
-}
-
-// IfFunc 条件判断，类似三元运算符，但是trueValue和falseValue是函数，返回值为这两个函数的返回值
-func IfFunc[T any](condition bool, trueFunc, falseFunc func() T) T {
-	if condition {
-		return trueFunc()
-	}
-	if falseFunc == nil {
-		var zero T
-		return zero
-	}
-	return falseFunc()
-}
-
-func MapGet[T any](m map[string]any, key string, defaultValue T) T {
-	if m == nil {
-		return defaultValue
-	}
-
-	if v, ok := m[key]; ok {
-		return v.(T)
-	}
-
-	return defaultValue
-}
-
-func SyncMapGet[T any](m *sync.Map, key string, defaultValue T) T {
-	if m == nil {
-		return defaultValue
-	}
-
-	if v, ok := m.Load(key); ok {
-		return v.(T)
-	}
-
-	return defaultValue
 }
 
 // GetClassName 获取对象的类名
@@ -119,15 +74,18 @@ func IsPtr[T any](v T) bool {
 	return reflect.TypeOf(v).Kind() == reflect.Ptr
 }
 
-// PtrValue 获取指针的值
-func PtrValue(v any) any {
-	if v == nil {
-		return nil
-	} else if vOf := reflect.ValueOf(v); vOf.Kind() != reflect.Ptr || vOf.IsNil() {
-		return v
+// PtrElement 获取指针的元素
+func PtrElement(v any) reflect.Value {
+	valOf := reflect.ValueOf(v)
+	for {
+		if valOf.Kind() == reflect.Ptr {
+			valOf = valOf.Elem()
+		} else {
+			break
+		}
 	}
 
-	return reflect.ValueOf(v).Elem().Interface()
+	return valOf
 }
 
 // New 创建对象

@@ -27,7 +27,7 @@ func (s *ConnectionID) UnmarshalBinary(data []byte) error {
 
 type IConnection interface {
 	Context() context.Context
-	WithContext(ctx context.Context)
+	SetContext(ctx context.Context)
 	Write(envelope IEnvelope) error
 	WaitForReceiving()
 

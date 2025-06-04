@@ -16,23 +16,36 @@ import (
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/base"
 	wsProto "gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/proto"
+	"strings"
 )
 
 type GrpcService struct {
 	app      *app.App
 	worker   worker.IWorker
 	logger   *log.Helper
-	services map[string]*grpc.ServiceDesc
+	services map[string]*grpcServiceInfo
 
 	hub base.IHub
 }
 
-type pbService struct {
+type grpcMethodInfo struct {
 	serviceName string
 	server      any
-	methodDesc  grpc.MethodDesc
-	streamDesc  grpc.StreamDesc
-	stream      bool
+
+	methodDesc     *grpc.MethodDesc
+	streamDesc     *grpc.StreamDesc
+	requestStream  bool
+	responseStream bool
+}
+
+// serviceInfo wraps information about a service. It is very similar to
+// ServiceDesc and is constructed from it for internal purposes.
+type grpcServiceInfo struct {
+	// Contains the implementation for the methods in this service.
+	serviceImpl any
+	methods     map[string]*grpc.MethodDesc
+	streams     map[string]*grpc.StreamDesc
+	mdata       any
 }
 
 func NewGrpcService(
@@ -46,19 +59,28 @@ func NewGrpcService(
 		logger:   log.NewModuleHelper(logger, "websocket/service/grpc"),
 		worker:   worker,
 		hub:      hub,
-		services: make(map[string]*grpc.ServiceDesc),
+		services: make(map[string]*grpcServiceInfo),
 	}
 }
 
 var _ base.IHandler = (*GrpcService)(nil)
 
 func (g *GrpcService) RegisterService(desc *grpc.ServiceDesc, impl any) {
-	var _desc = new(grpc.ServiceDesc)
-	// copy
-	*_desc = *desc
-	_desc.HandlerType = impl
-
-	g.services[_desc.ServiceName] = _desc
+	info := &grpcServiceInfo{
+		serviceImpl: impl,
+		methods:     make(map[string]*grpc.MethodDesc),
+		streams:     make(map[string]*grpc.StreamDesc),
+		mdata:       desc.Metadata,
+	}
+	for i := range desc.Methods {
+		d := &desc.Methods[i]
+		info.methods[d.MethodName] = d
+	}
+	for i := range desc.Streams {
+		d := &desc.Streams[i]
+		info.streams[d.StreamName] = d
+	}
+	g.services[desc.ServiceName] = info
 }
 
 func (g *GrpcService) OnPong(ctx context.Context, connection base.IConnection) error {
@@ -95,7 +117,7 @@ func (g *GrpcService) OnRecvMessage(ctx context.Context, connection base.IConnec
 		return nil
 	}
 
-	if pbService.stream {
+	if pbService.requestStream || pbService.responseStream {
 
 	} else {
 		// 同步调用
@@ -142,29 +164,28 @@ func (g *GrpcService) marshal(messageType int, message proto.Message) []byte {
 	return bytes
 }
 
-func (g *GrpcService) getServiceMethod(serviceName string, methodName string) (pbService, error) {
-	var pbService pbService
+func (g *GrpcService) getServiceMethod(serviceName string, methodName string) (grpcMethodInfo, error) {
+	var pbService grpcMethodInfo
 	service, ok := g.services[serviceName]
 	if !ok {
 		return pbService, errors.NotFound("", fmt.Sprintf("service \"%s\" not found", serviceName))
 	}
 
-	method, ok1 := lo.Find(service.Methods, func(method grpc.MethodDesc) bool {
-		return method.MethodName == methodName
-	})
-
-	stream, ok2 := lo.Find(service.Streams, func(stream grpc.StreamDesc) bool {
-		return stream.StreamName == methodName
-	})
+	method, ok1 := service.methods[methodName]
+	stream, ok2 := service.streams[methodName]
 
 	if !ok1 && !ok2 {
-		return pbService, errors.NotFound("METHOD", fmt.Sprintf("service \"%s\" method \"%s\" not found", serviceName, methodName))
-	} else if ok2 {
-		pbService.stream = true
+		return pbService, errors.NotFound("", fmt.Sprintf("service \"%s\" method \"%s\" not found", serviceName, methodName))
 	}
 
-	pbService.serviceName = service.ServiceName
-	pbService.server = service.HandlerType
+	pbService.requestStream = lo.IfF(stream != nil, func() bool {
+		return stream.ClientStreams
+	}).Else(false)
+	pbService.responseStream = lo.IfF(stream != nil, func() bool {
+		return stream.ServerStreams
+	}).Else(false)
+	pbService.serviceName = serviceName
+	pbService.server = service.serviceImpl
 	pbService.methodDesc = method
 	pbService.streamDesc = stream
 
@@ -175,16 +196,27 @@ func (g *GrpcService) getServiceMethod(serviceName string, methodName string) (p
 func (g *GrpcService) getRequestData(request *wsProto.WebsocketGrpcRequest) func(any) error {
 	return func(in any) error {
 		msg, ok := in.(proto.Message)
-		if !ok {
-			return errors.InternalServer("INTERNAL", "invalid data type")
+		if request.Data == nil || !ok {
+			return nil
 		}
-		return request.GetData().UnmarshalTo(msg)
+
+		if request.Data.TypeUrl == "" {
+			request.Data.TypeUrl = "type.googleapis.com/" + string(msg.ProtoReflect().Descriptor().FullName())
+		}
+
+		if err := request.GetData().UnmarshalTo(msg); err != nil {
+			return err
+		}
+
+		utils.PtrElement(in).Set(utils.PtrElement(msg))
+		return nil
 	}
 }
 
 // callService 同步调用服务
-func (g *GrpcService) callService(ctx context.Context, request *wsProto.WebsocketGrpcRequest, pbService pbService) (proto.Message, error) {
-	response, err := pbService.methodDesc.Handler(pbService.server, ctx, g.getRequestData(request), nil)
+func (g *GrpcService) callService(ctx context.Context, request *wsProto.WebsocketGrpcRequest, pbService grpcMethodInfo) (proto.Message, error) {
+	data := g.getRequestData(request)
+	response, err := pbService.methodDesc.Handler(pbService.server, ctx, data, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +228,7 @@ func (g *GrpcService) callService(ctx context.Context, request *wsProto.Websocke
 }
 
 // callStreamService 调用流式服务
-func (g *GrpcService) callStreamService(ctx context.Context, request *wsProto.WebsocketGrpcRequest, pbService pbService) error {
+func (g *GrpcService) callStreamService(ctx context.Context, request *wsProto.WebsocketGrpcRequest, pbService grpcMethodInfo) error {
 	//g.worker.WithContext(ctx).Submit(func(ctx context.Context) {
 	return nil
 	//})
@@ -204,6 +236,8 @@ func (g *GrpcService) callStreamService(ctx context.Context, request *wsProto.We
 
 func (g *GrpcService) sendError(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, err error) {
 	response := &wsProto.WebsocketGrpcResponse{
+		Service: request.Service,
+		Method:  request.Method,
 		MessageId: lo.If(request.MessageId != nil && request.GetMessageId() != "", request.MessageId).ElseF(func() *string {
 			return utils.Ptr(uuid.New().String())
 		}),
@@ -235,7 +269,13 @@ func (g *GrpcService) sendError(ctx context.Context, connection base.IConnection
 func (g *GrpcService) sendResponse(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, responseData proto.Message) error {
 	data, _ := anypb.New(responseData)
 
+	url := data.GetTypeUrl()
+	url = strings.ReplaceAll(url, "type.googleapis.com/", "")
+
 	response := &wsProto.WebsocketGrpcResponse{
+		Service: request.Service,
+		Method:  request.Method,
+		Type:    url,
 		MessageId: lo.If(request.MessageId != nil && request.GetMessageId() != "", request.MessageId).ElseF(func() *string {
 			return utils.Ptr(uuid.New().String())
 		}),

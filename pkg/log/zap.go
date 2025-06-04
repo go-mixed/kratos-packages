@@ -2,9 +2,9 @@ package log
 
 import (
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
 	"os"
@@ -137,7 +137,7 @@ func buildFilterFunc(filters []FilterOption) log.FilterOption {
 //	simpleLogConf.dir 为日志目录
 func buildSimpleZapCore(conf simpleLogConf) zapcore.Core {
 	atomic := zap.NewAtomicLevelAt(conf.level)
-	encoder := buildZapEncoder(utils.If(conf.production, encoderTypeJSON, encoderTypeConsole), "2006-01-02 15:04:05", conf.color)
+	encoder := buildZapEncoder(lo.If(conf.production, encoderTypeJSON).Else(encoderTypeConsole), "2006-01-02 15:04:05", conf.color)
 
 	syncers := []zapcore.WriteSyncer{
 		zapcore.AddSync(os.Stdout),

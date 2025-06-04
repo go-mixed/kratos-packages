@@ -3,7 +3,7 @@ package redis
 import (
 	"context"
 	"github.com/redis/go-redis/v9"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
+	"github.com/samber/lo"
 	"time"
 )
 
@@ -153,7 +153,7 @@ func (c *Redis) SortInterfaces(ctx context.Context, key string, sort *redis.Sort
 	key = c.formatKey(key)
 	res := c.GetRedisCmd(ctx).SortInterfaces(ctx, key, sort)
 
-	err := utils.IfFunc(actual != nil, func() error { return res.Scan(actual) }, func() error { return res.Err() })
+	err := lo.IfF(actual != nil, func() error { return res.Scan(actual) }).ElseF(func() error { return res.Err() })
 	if err != nil {
 		return nil, filterNil(err)
 	}

@@ -98,7 +98,7 @@ func CompareProtoBuf[P proto.Message](message1 P, message2 P, fieldName string) 
 	case protoreflect.BytesKind:
 		return bytes.Compare(val1.Bytes(), val2.Bytes())
 	case protoreflect.BoolKind:
-		return If(val1.Bool(), 1, 0) - If(val2.Bool(), 1, 0)
+		return lo.If(val1.Bool(), 1).Else(0) - lo.If(val2.Bool(), 1).Else(0)
 	case protoreflect.Int32Kind, protoreflect.Int64Kind, protoreflect.Sint32Kind, protoreflect.Sint64Kind,
 		protoreflect.Fixed32Kind, protoreflect.Fixed64Kind, protoreflect.Sfixed32Kind, protoreflect.Sfixed64Kind:
 		return cmp.Compare(val1.Int(), val2.Int())

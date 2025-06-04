@@ -83,7 +83,7 @@ func NewServer(
 			WriteBufferSize: 1024,
 			CheckOrigin:     func(r *http.Request) bool { return true },
 		},
-		logger: log.NewModuleHelper(log.DefaultLogger, "websocket/handleCaller"),
+		logger: log.NewModuleHelper(log.DefaultLogger, "websocket/server"),
 	}
 
 	for _, opt := range opts {
@@ -125,7 +125,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	ctx = requestid.NewContext(ctx, requestid.GetOrGenerateRequestId(r))
-	r = r.WithContext(ctx)
 
 	logger := s.logger.WithContext(ctx)
 
@@ -162,6 +161,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 将用户信息放入context中
+	ctx = auth.NewContext(ctx, user)
+
 	conn, err := s.makeConnection(ctx, r, wsConn, user)
 	if err != nil {
 		logger.Errorf("[WS]ServeHTTP invoke conn error, request = %+v", r, err)
@@ -169,6 +171,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_ = wsConn.Close()
 		return
 	}
+
+	// 切勿将conn包裹到context中之后，再把ctx设置到conn中，这可能会造成无法gc
+	ctx = base.NewContext(ctx, conn.GetID())
+	conn.SetContext(ctx)
+
+	r = r.WithContext(ctx)
 
 	logger.Infof("[WS]connected, conn = %s", conn)
 
@@ -182,7 +190,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 离开函数时，反注册conn、关闭连接
 	defer func() {
 		if err = s.onDisconnected(conn); err != nil && !errors.Is(err, base.ErrServerClosed) {
-			logger.Errorf("[WS]ServeHTTP unregister conn error, request = %+v", r, err)
+			logger.Errorf("[WS]ServeHTTP onDisconnected error, request = %+v", r, err)
 		}
 
 		_ = s.callDisconnectHandler(conn)
@@ -190,7 +198,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// 在hub中注册conn，返回conn
 	if err = s.onConnected(conn); err != nil {
-		logger.Errorf("[WS]ServeHTTP register conn error, request = %+v", r, err)
+		logger.Errorf("[WS]ServeHTTP onConnected error, request = %+v", r, err)
 		_ = conn.TryClose(err.Error())
 		return
 	}
@@ -286,10 +294,11 @@ func (s *Server) Start(ctx context.Context) error {
 	s.BaseContext = func(net.Listener) context.Context {
 		return ctx
 	}
-	s.logger.WithContext(ctx).Infof("[WS]handleCaller listening on: %s", s.listener.Addr().String())
 
 	// 启动hub
 	s.onServerStarted(ctx)
+
+	s.logger.WithContext(ctx).Infof("[WS] server listening on: %s", s.listener.Addr().String())
 
 	// 阻塞listen运行
 	var err error
@@ -309,7 +318,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 // Stop 停止服务
 func (s *Server) Stop(ctx context.Context) error {
-	s.logger.WithContext(ctx).Info("[WS]handleCaller stopping")
+	s.logger.WithContext(ctx).Info("[WS] server stopping")
 	err := s.Shutdown(ctx)
 
 	s.onServerStopped(ctx)

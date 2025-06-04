@@ -1,6 +1,7 @@
 package http
 
 import (
+	"github.com/samber/lo"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"sort"
 	"strings"
@@ -14,7 +15,7 @@ func DomainIndexOfWildCard(d string) int {
 	}
 	i := strings.Index(d, "*")
 	j := strings.Index(d, "?")
-	return utils.If(i > j, i, j)
+	return lo.If(i > j, i).Else(j)
 }
 
 func DomainHasWildCard(d string) bool {
@@ -29,7 +30,7 @@ func SortDomains[T any](src []T, fn func(v T) string) {
 		l1 := len(d1)
 		l2 := len(d2)
 
-		minLen := utils.If(l1 < l2, l1, l2)
+		minLen := lo.If(l1 < l2, l1).Else(l2)
 
 		// 倒着对比，谁先*, 谁拍后面
 		for i := 1; i <= minLen; i++ {

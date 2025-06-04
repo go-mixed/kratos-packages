@@ -7,13 +7,15 @@ import (
 )
 
 func (s *Server) onServerStarted(ctx context.Context) {
-	// 监听信封
-	s.cluster.Listen(ctx, s.sendRaw)
 
 	s.running.Store(true)
 
 	// 调用startHandler，优先于广播、延迟队列启动
 	s.callStartHandler(ctx)
+
+	// 监听信封
+	s.cluster.Listen(ctx, s.sendRaw)
+
 }
 
 func (s *Server) onServerStopped(ctx context.Context) {

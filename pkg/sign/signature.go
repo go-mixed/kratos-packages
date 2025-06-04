@@ -61,6 +61,9 @@ func CalcSignature(appSecret string, values url.Values, opts ...Option) string {
 		})
 	}
 
+	// 去重
+	keys = lo.Uniq(keys)
+
 	sort.Strings(keys) // key的正序排序
 
 	//"k1=v1&k2=v2" + secret

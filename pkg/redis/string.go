@@ -80,7 +80,7 @@ func (c *Redis) MGet(ctx context.Context, keys []string, actual any) ([]string, 
 	_keys := c.formatKeys(keys)
 	res := c.GetRedisCmd(ctx).MGet(ctx, _keys...)
 
-	err := utils.IfFunc(actual != nil, func() error { return res.Scan(actual) }, func() error { return res.Err() })
+	err := lo.IfF(actual != nil, func() error { return res.Scan(actual) }).ElseF(func() error { return res.Err() })
 	if err != nil {
 		return nil, filterNil(err)
 	}

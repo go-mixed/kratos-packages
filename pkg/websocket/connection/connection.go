@@ -115,7 +115,7 @@ func (s *Connection) Context() context.Context {
 	return s.ctx
 }
 
-func (s *Connection) WithContext(ctx context.Context) {
+func (s *Connection) SetContext(ctx context.Context) {
 	s.ctx = ctx
 }
 
