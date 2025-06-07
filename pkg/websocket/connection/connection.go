@@ -244,7 +244,7 @@ func (s *Connection) WaitForReceiving() {
 
 	// 设置conn的读取超时时间，因为Ping会在PongTimeout之前发送，接收到Pong之后，会延长读取下一个receive的超时时间。
 	// 设置失败，也不影响程序的正常运行。
-	if err := s.conn.SetReadDeadline(time.Now().Add(s.conf.PongTimeout)); err != nil {
+	if err := s.conn.SetReadDeadline(time.Now().Add(s.conf.PingTimeout)); err != nil {
 		s.logger.Warn(errors.Wrapf(err, "receiving SetReadDeadline failed. connection = %s", s))
 	}
 
@@ -259,7 +259,7 @@ func (s *Connection) WaitForReceiving() {
 		s.fails.Store(0)
 		// 延长读取下一个pong的超时时间，即使设置失败，也不影响程序的正常运行。
 		// Pong的超时时间绝对要小于Ping的间隔时间
-		if err := s.conn.SetReadDeadline(time.Now().Add(s.conf.PongTimeout)); err != nil {
+		if err := s.conn.SetReadDeadline(time.Now().Add(s.conf.PingTimeout)); err != nil {
 			s.logger.Warn(errors.Wrapf(err, "SetPongHandler SetReadDeadline failed. connection = %s", s))
 		}
 		// 先更新最近一次接收消息的时间，再调用handler

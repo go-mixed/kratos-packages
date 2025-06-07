@@ -112,19 +112,23 @@ func (g *GrpcService) OnRecvMessage(ctx context.Context, connection base.IConnec
 
 	// 使用协程处理
 	go func(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, method grpcMethodInfo) {
+		// ctx的生命周期只在响应内有效
+		sessionCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
 		var response proto.Message
 		var err error
 		if method.requestStream || method.responseStream {
-			err = g.callStreamService(ctx, connection, messageType, request, method)
+			err = g.callStreamService(sessionCtx, connection, messageType, request, method)
 		} else {
-			response, err = g.callService(ctx, request, method)
+			response, err = g.callService(sessionCtx, request, method)
 		}
 
 		if err != nil {
-			g.sendError(ctx, connection, messageType, request, err)
+			g.sendError(sessionCtx, connection, messageType, request, err)
 		} else if response != nil {
-			if err = sendGrpcResponse(ctx, g.hub, connection, messageType, request, response); err != nil {
-				g.sendError(ctx, connection, messageType, request, err)
+			if err = sendGrpcResponse(sessionCtx, g.hub, connection, messageType, request, response); err != nil {
+				g.sendError(sessionCtx, connection, messageType, request, err)
 			}
 		}
 

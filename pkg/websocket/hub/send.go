@@ -1,4 +1,4 @@
-package server
+package hub
 
 import (
 	"context"
@@ -8,15 +8,15 @@ import (
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/envelope"
 )
 
-func (s *Server) GetConnections() base.IConnections {
+func (s *Hub) GetConnections() base.IConnections {
 	return s.connections
 }
 
-func (s *Server) GetAllConnectionIDs(ctx context.Context) []base.ConnectionID {
+func (s *Hub) GetAllConnectionIDs(ctx context.Context) []base.ConnectionID {
 	return s.connections.GetAllConnectionIDs(ctx)
 }
 
-func (s *Server) Send(ctx context.Context, envelope base.IEnvelope) error {
+func (s *Hub) Send(ctx context.Context, envelope base.IEnvelope) error {
 	// 先执行当前节点的发送
 	err := s.sendRaw(ctx, envelope)
 	// 发送到集群
@@ -24,7 +24,7 @@ func (s *Server) Send(ctx context.Context, envelope base.IEnvelope) error {
 	return err
 }
 
-func (s *Server) SendText(ctx context.Context, message string, connIds ...base.ConnectionID) error {
+func (s *Hub) SendText(ctx context.Context, message string, connIds ...base.ConnectionID) error {
 	return s.Send(ctx, envelope.NewEnvelopeBuilder().
 		WithContext(ctx).
 		WithMessageType(base.TextMessage).
@@ -33,7 +33,7 @@ func (s *Server) SendText(ctx context.Context, message string, connIds ...base.C
 		Build())
 }
 
-func (s *Server) SendBinary(ctx context.Context, message []byte, connIds ...base.ConnectionID) error {
+func (s *Hub) SendBinary(ctx context.Context, message []byte, connIds ...base.ConnectionID) error {
 	return s.Send(ctx, envelope.NewEnvelopeBuilder().
 		WithContext(ctx).
 		WithMessageType(base.BinaryMessage).
@@ -42,7 +42,7 @@ func (s *Server) SendBinary(ctx context.Context, message []byte, connIds ...base
 		Build())
 }
 
-func (s *Server) BroadcastText(ctx context.Context, message string) error {
+func (s *Hub) BroadcastText(ctx context.Context, message string) error {
 	return s.Send(ctx, envelope.NewEnvelopeBuilder().
 		WithContext(ctx).
 		WithMessageType(base.TextMessage).
@@ -51,7 +51,7 @@ func (s *Server) BroadcastText(ctx context.Context, message string) error {
 		Build())
 }
 
-func (s *Server) BroadcastBinary(ctx context.Context, message []byte) error {
+func (s *Hub) BroadcastBinary(ctx context.Context, message []byte) error {
 	return s.Send(ctx, envelope.NewEnvelopeBuilder().
 		WithContext(ctx).
 		WithMessageType(base.BinaryMessage).
@@ -60,7 +60,7 @@ func (s *Server) BroadcastBinary(ctx context.Context, message []byte) error {
 		Build())
 }
 
-func (s *Server) Close(ctx context.Context, exitMessage string, connIds ...base.ConnectionID) {
+func (s *Hub) Close(ctx context.Context, exitMessage string, connIds ...base.ConnectionID) {
 	// 先关闭本地节点
 	conns := s.connections.MGet(connIds...)
 	for _, conn := range conns.Iterator() {
@@ -78,7 +78,7 @@ func (s *Server) Close(ctx context.Context, exitMessage string, connIds ...base.
 	_ = s.cluster.Publish(ctx, _envelope)
 }
 
-func (s *Server) sendRaw(ctx context.Context, _envelope base.IEnvelope) error {
+func (s *Hub) sendRaw(ctx context.Context, _envelope base.IEnvelope) error {
 	if !s.Running() {
 		return base.ErrServerClosed
 	}
@@ -110,7 +110,7 @@ func (s *Server) sendRaw(ctx context.Context, _envelope base.IEnvelope) error {
 //  2. 根据redis中的envelope zset，过滤掉已经ack成功的connIDs
 //  3. 如果是重试消息，需要过滤掉无需重试的connIDs，即存在version才需要重试
 //  4. 循环发送消息
-func (s *Server) doSendRaw(ctx context.Context, _envelope base.IEnvelope) base.SentConnections {
+func (s *Hub) doSendRaw(ctx context.Context, _envelope base.IEnvelope) base.SentConnections {
 	logger := s.logger.WithContext(ctx)
 	var sentConns base.SentConnections
 
@@ -141,7 +141,7 @@ func (s *Server) doSendRaw(ctx context.Context, _envelope base.IEnvelope) base.S
 	if _envelope.GetMessageType() == websocket.TextMessage ||
 		_envelope.GetMessageType() == websocket.BinaryMessage {
 		if err = s.callSendMessageHandler(ctx, _envelope, sentConns); err != nil {
-			logger.Errorf("[Hub]call send message handler error, envelope = %+v, connections = %v", _envelope, sendingConns.IDs(), err)
+			logger.Errorf("[WS]call send message handler error, envelope = %+v, connections = %v", _envelope, sendingConns.IDs(), err)
 		}
 	}
 
@@ -149,7 +149,7 @@ func (s *Server) doSendRaw(ctx context.Context, _envelope base.IEnvelope) base.S
 }
 
 // doObsoleteConnection 踢掉相同ID名的旧的conn，注意：是异步的
-func (s *Server) doObsoleteConnection(id base.ConnectionID) error {
+func (s *Hub) doObsoleteConnection(id base.ConnectionID) error {
 	oldConn := s.GetConnections().Get(id)
 	if oldConn != nil {
 		oldConn.SetObsolete()
