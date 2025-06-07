@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
@@ -92,8 +94,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// recover panic
 	defer func() {
+		stackTrace := debug.Stack()
+		stackTraceAsRawStringLiteral := strconv.Quote(string(stackTrace))
 		if res := recover(); res != nil {
-			logger.Errorf("[WS]ServeHTTP panic, request = %+v, recover = %+v", r, res)
+			logger.Errorf("[WS]ServeHTTP panic, request = %+v, recover = %+v,  stack = %s", r, res, stackTraceAsRawStringLiteral)
 		}
 	}()
 
@@ -112,6 +116,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		_ = wsConn.WriteMessage(base.CloseMessage, []byte(err.Error()))
 		_ = wsConn.Close()
+		return
 	}
 
 	// conn.Close需要单独写一个defer，可以保证即使在其它defer中panic时，conn.Close也绝对会被执行。
