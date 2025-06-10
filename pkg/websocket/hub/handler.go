@@ -16,9 +16,13 @@ func (s *Hub) CallPongHandler(conn base.IConnection) error {
 }
 
 // CallRecvMessageHandler calls the recv message handler.
-func (s *Hub) CallRecvMessageHandler(conn base.IConnection, msgType int, msg []byte) error {
+func (s *Hub) CallRecvMessageHandler(connection base.IConnection, messageType int, msg []byte) error {
+	ctx := connection.Context()
+	_stream := base.NewStream(ctx, s, connection, messageType)
+	ctx = base.NewContext(ctx, _stream)
+
 	for _, handler := range s.handlers {
-		if err := handler.OnRecvMessage(conn.Context(), conn, msgType, msg); err != nil {
+		if err := handler.OnRecvMessage(ctx, connection, messageType, msg); err != nil {
 			return err
 		}
 	}

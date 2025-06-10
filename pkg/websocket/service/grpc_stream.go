@@ -2,10 +2,10 @@ package service
 
 import (
 	"context"
-	"github.com/go-kratos/kratos/v2/encoding/json"
 	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -14,25 +14,6 @@ import (
 	wsProto "gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/proto"
 	"strings"
 )
-
-func grpcUnmarshal(messageType int, data []byte, in proto.Message) error {
-	if messageType == base.BinaryMessage {
-		return proto.Unmarshal(data, in)
-	} else if messageType == base.TextMessage {
-		return json.UnmarshalOptions.Unmarshal(data, in)
-	}
-	return nil
-}
-
-func grpcMarshal(messageType int, message proto.Message) []byte {
-	var bytes []byte
-	if messageType == base.BinaryMessage {
-		bytes, _ = proto.Marshal(message)
-	} else if messageType == base.TextMessage {
-		bytes, _ = json.MarshalOptions.Marshal(message)
-	}
-	return bytes
-}
 
 // getGrpcRequestData 获取grpc请求的Data，转成proto.Message
 func getGrpcRequestData(request *wsProto.WebsocketGrpcRequest) func(any) error {
@@ -73,7 +54,7 @@ func sendGrpcResponse(ctx context.Context, hub base.IHub, connection base.IConne
 		Data:    data,
 	}
 
-	bytes := grpcMarshal(messageType, response)
+	bytes := base.ProtoMarshal(messageType, response)
 	var err error
 	if messageType == base.BinaryMessage {
 		err = hub.SendBinary(ctx, bytes, connection.GetID())
@@ -93,6 +74,8 @@ type grpcStream struct {
 	messageType int
 }
 
+var _ grpc.ServerStream = (*grpcStream)(nil)
+
 func (g *grpcStream) SetHeader(md metadata.MD) error {
 	return nil
 }
@@ -110,12 +93,11 @@ func (g *grpcStream) Context() context.Context {
 }
 
 func (g *grpcStream) SendMsg(m any) error {
-	msg, ok := m.(proto.Message)
+	message, ok := m.(proto.Message)
 	if !ok {
 		return errors.InternalServer("INTERNAL", "invalid response type")
 	}
-
-	return sendGrpcResponse(g.ctx, g.hub, g.connection, g.messageType, g.request, msg)
+	return sendGrpcResponse(g.ctx, g.hub, g.connection, g.messageType, g.request, message)
 }
 
 func (g *grpcStream) RecvMsg(m any) error {

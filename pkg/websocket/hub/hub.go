@@ -92,11 +92,6 @@ func (s *Hub) OnConnect(ctx context.Context, r *http.Request, wsConn *websocket.
 		return nil, errors.Errorf("无法创建连接：%s", err.Error())
 	}
 
-	// 切勿将conn包裹到context中之后，再把ctx设置到conn中，这可能会造成无法gc
-	// 此处只存储connection id，故不存在这个问题
-	ctx = wsBase.NewContext(ctx, conn.GetID())
-	conn.SetContext(ctx)
-
 	logger = logger.WithContext(ctx)
 	logger.Infof("[WS]connected, conn = %s", conn)
 
