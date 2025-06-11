@@ -110,7 +110,7 @@ func (s *Hub) OnConnect(ctx context.Context, r *http.Request, wsConn *websocket.
 // makeConnection 创建conn
 func (s *Hub) makeConnection(ctx context.Context, r *http.Request, wsConn *wsBase.WsConn, user auth.IAuth) (wsBase.IConnection, error) {
 	// id := ConnectionID(fmt.Sprintf("%s:%d", auth.GetGuardName(), auth.GetAuthorizationID()))
-	conn := connection.NewConnection(s, r, wsConn, s.logger, s.wsConf, user)
+	conn := connection.NewConnection(ctx, r, wsConn, s, s.logger, s.wsConf, user)
 
 	var err error
 	if conn, err = s.adapter.InvokeConnection(ctx, conn); err != nil {

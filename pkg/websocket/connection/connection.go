@@ -25,7 +25,7 @@ import (
 // Connection wrapper around websocket connections.
 type Connection struct {
 	ID      base.ConnectionID
-	Request *http.Request
+	request *http.Request
 
 	conn         *base.WsConn
 	handleCaller base.IHandleCaller
@@ -51,9 +51,10 @@ type Connection struct {
 var _ base.IConnection = (*Connection)(nil)
 
 func NewConnection(
-	handleCaller base.IHandleCaller,
+	ctx context.Context,
 	r *http.Request,
 	conn *base.WsConn,
+	handleCaller base.IHandleCaller,
 	logger *log.Helper,
 	conf *base.WsConfig,
 	user auth.IAuth,
@@ -64,13 +65,15 @@ func NewConnection(
 		conn:         conn,
 		handleCaller: handleCaller,
 		logger:       logger,
+		user:         user,
+		request:      r,
 
 		quitCh: make(chan struct{}),
 
 		open:       atomic.Bool{},
 		isObsolete: false,
 		metadata:   &utils.ConcurrentMap[string, any]{},
-		ctx:        context.Background(),
+		ctx:        ctx,
 		fails:      atomic.Uint32{},
 
 		lastRecvAt: time.Now(), // 建立链接，就表示已经接收到了消息
@@ -82,30 +85,23 @@ func NewConnection(
 	}
 	s.open.Store(true)
 
-	s.initial(r, user)
+	s.initial()
 	return s
 }
 
-func (s *Connection) initial(
-	r *http.Request,
-	user auth.IAuth,
-) {
-	query := r.URL.Query()
+func (s *Connection) initial() {
+	query := s.request.URL.Query()
 	version := query.Get("version")
-
-	s.Request = r
-	s.user = user
-	s.ctx = r.Context()
 
 	if version != "" {
 		s.SetMetadata("version", version)
 	}
 
 	// 将x-md-的头写入metadata中
-	for k := range r.Header {
+	for k := range s.request.Header {
 		k = strings.ToLower(k) // 小写
 		if strings.HasPrefix(k, "x-md-") {
-			s.SetMetadata(k, r.Header.Get(k))
+			s.SetMetadata(k, s.request.Header.Get(k))
 		}
 	}
 
@@ -395,7 +391,7 @@ func (s *Connection) GetRemoteAddr() net.Addr {
 // it will try to parse and returns the headers defined in [X-Forwarded-For, X-Real-Ip].
 // otherwise, the remote IP (coming from Request.RemoteAddr) is returned.
 func (s *Connection) GetClientIP() string {
-	removeAddr, _, _ := net.SplitHostPort(strings.TrimSpace(s.Request.RemoteAddr))
+	removeAddr, _, _ := net.SplitHostPort(strings.TrimSpace(s.request.RemoteAddr))
 	remoteIP := net.ParseIP(removeAddr)
 	if remoteIP == nil {
 		return ""
@@ -403,7 +399,7 @@ func (s *Connection) GetClientIP() string {
 	// read real-ip from headers: X-Forwarded-For, X-Real-Ip
 	remoteIPHeaders := []string{"X-Forwarded-For", "X-Real-IP"}
 	for _, headerName := range remoteIPHeaders {
-		header := s.Request.Header.Get(headerName)
+		header := s.request.Header.Get(headerName)
 		if header == "" {
 			continue
 		}
@@ -426,7 +422,7 @@ func (s *Connection) GetRequestId() string {
 
 // GetRequest returns the request.
 func (s *Connection) GetRequest() *http.Request {
-	return s.Request
+	return s.request
 }
 
 // IsClosed returns true if the connection is closed.
