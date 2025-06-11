@@ -4,29 +4,69 @@ import (
 	"reflect"
 )
 
-// IsNil 指针是否为nil
+// IsNil 指针是否为nil，支持多层Ptr
 func IsNil(v any) bool {
 	if v == nil {
 		return true
 	}
-	vOf := reflect.ValueOf(v)
-	return vOf.Kind() == reflect.Ptr && vOf.IsNil()
+	rv := reflect.ValueOf(v)
+	// 循环解引用指针和接口
+	for rv.Kind() == reflect.Ptr || rv.Kind() == reflect.Interface {
+		if rv.IsNil() {
+			return true
+		}
+		rv = rv.Elem() // 深入解引用
+	}
+
+	// 检查其他可 nil 类型
+	switch rv.Kind() {
+	case reflect.Slice, reflect.Map, reflect.Func, reflect.Chan:
+		return rv.IsNil()
+	default:
+	}
+
+	return false
 }
 
-// IsZero 判断是否为零值
+// IsZero 判断是否为nil/零值，支持多层Ptr
 // 能够判断map、slice、array类型是否没有元素
+//
+//	```
+//
+// var nilSlice []int
+// var emptySlice = []int{}
+//
+// var nilMap map[string]int
+// var emptyMap = map[string]int{}
+//
+// var arrZero = [3]int{}
+// var arrNonZero = [3]int{1}
+//
+// var iface interface{} = &arrZero // 接口包裹指针
+//
+// IsZero(nilSlice)      // true (nil)
+// IsZero(emptySlice)    // true (长度0)
+// IsZero(nilMap)        // true (nil)
+// IsZero(emptyMap)      // true (长度0)
+// IsZero(arrZero)       // true (所有元素零值)
+// IsZero(arrNonZero)    // false
+// IsZero(iface)         // true (解引用后数组为零值)
+//
+//	```
 func IsZero(v any) bool {
-	if v == nil {
+	if IsNil(v) {
 		return true
 	}
-	valOf := PtrElement(v)
-	switch valOf.Kind() {
-	case reflect.Slice, reflect.Map, reflect.Array:
-		return valOf.Len() == 0
+	rv := PtrElement(v)
+	switch rv.Kind() {
+	case reflect.Slice, reflect.Map:
+		return rv.Len() == 0
+	case reflect.Array: // 数组需要检查所有元素是否为零值
+		return rv.IsZero()
 	default:
 
 	}
-	return valOf.IsZero()
+	return rv.IsZero()
 }
 
 // IsZeroT 判断是否为零值，T必须是可比较的类型，性能比IsZero高
@@ -76,16 +116,14 @@ func IsPtr[T any](v T) bool {
 
 // PtrElement 获取指针的元素
 func PtrElement(v any) reflect.Value {
-	valOf := reflect.ValueOf(v)
-	for {
-		if valOf.Kind() == reflect.Ptr {
-			valOf = valOf.Elem()
-		} else {
-			break
+	rv := reflect.ValueOf(v)
+	for rv.Kind() == reflect.Ptr || rv.Kind() == reflect.Interface {
+		if rv.IsNil() { // 避免解引用 nil 值导致的 panic
+			return rv
 		}
+		rv = rv.Elem()
 	}
-
-	return valOf
+	return rv
 }
 
 // New 创建对象
