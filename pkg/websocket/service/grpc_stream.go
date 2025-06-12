@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"github.com/go-kratos/kratos/v2/errors"
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -36,38 +35,30 @@ func getGrpcRequestData(request *wsProto.WebsocketGrpcRequest) func(any) error {
 	}
 }
 
-func sendGrpcResponse(ctx context.Context, hub base.IHub, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, responseData proto.Message) error {
-	data, _ := anypb.New(responseData)
+func MakeGrpcResponse(messageId, serviceName, methodName string, data *anypb.Any, err error) *wsProto.WebsocketGrpcResponse {
+	return &wsProto.WebsocketGrpcResponse{
+		Service:   serviceName,
+		Method:    methodName,
+		Type:      strings.ReplaceAll(data.GetTypeUrl(), "type.googleapis.com/", ""),
+		MessageId: utils.Ptr(messageId),
 
-	url := data.GetTypeUrl()
-	url = strings.ReplaceAll(url, "type.googleapis.com/", "")
-
-	response := &wsProto.WebsocketGrpcResponse{
-		Service: request.Service,
-		Method:  request.Method,
-		Type:    url,
-		MessageId: lo.If(request.MessageId != nil && request.GetMessageId() != "", request.MessageId).ElseF(func() *string {
-			return utils.Ptr(uuid.New().String())
-		}),
-		Code:    0,
-		Message: "",
-		Data:    data,
+		Code: lo.IfF(err != nil, func() int32 {
+			if code := errors.Code(err); code > 0 {
+				return int32(code)
+			}
+			return 400
+		}).Else(0),
+		Message: lo.IfF(err != nil, func() string {
+			return err.Error()
+		}).Else(""),
+		Data: data,
 	}
 
-	bytes := base.ProtoMarshal(messageType, response)
-	var err error
-	if messageType == base.BinaryMessage {
-		err = hub.SendBinary(ctx, bytes, connection.GetID())
-	} else if messageType == base.TextMessage {
-		err = hub.SendText(ctx, string(bytes), connection.GetID())
-	}
-
-	return err
 }
 
 type grpcStream struct {
 	ctx         context.Context
-	hub         base.IHub
+	grpcHandler *GrpcService
 	connection  base.IConnection
 	request     *wsProto.WebsocketGrpcRequest
 	method      grpcMethodInfo
@@ -97,7 +88,7 @@ func (g *grpcStream) SendMsg(m any) error {
 	if !ok {
 		return errors.InternalServer("INTERNAL", "invalid response type")
 	}
-	return sendGrpcResponse(g.ctx, g.hub, g.connection, g.messageType, g.request, message)
+	return g.grpcHandler.sendResponse(g.ctx, g.connection, g.messageType, g.request, message)
 }
 
 func (g *grpcStream) RecvMsg(m any) error {

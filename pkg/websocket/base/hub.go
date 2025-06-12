@@ -3,6 +3,7 @@ package base
 import (
 	"context"
 	"github.com/gorilla/websocket"
+	"google.golang.org/protobuf/proto"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/auth"
 	"net/http"
 )
@@ -11,7 +12,9 @@ type IHub interface {
 	Running() bool
 	GetConnections() IConnections
 	GetAllConnectionIDs(ctx context.Context) []ConnectionID
-	Send(ctx context.Context, envelope IEnvelope) error
+	Send(ctx context.Context, messageType int, message []byte, connIds ...ConnectionID) error
+	SendProtoMessage(ctx context.Context, messageType int, message proto.Message, connIds ...ConnectionID) error
+	SendEnvelope(ctx context.Context, envelope IEnvelope) error
 	SendText(ctx context.Context, message string, connIds ...ConnectionID) error
 	SendBinary(ctx context.Context, message []byte, connIds ...ConnectionID) error
 	BroadcastText(ctx context.Context, message string) error

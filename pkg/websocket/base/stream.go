@@ -12,6 +12,7 @@ type IStream interface {
 	MessageType() int
 	Context() context.Context
 	ConnectionID() ConnectionID
+	Connection() IConnection
 	Send(message []byte) error
 	SendProtoMessage(proto.Message) error
 }
@@ -47,6 +48,10 @@ func (s *stream) ConnectionID() ConnectionID {
 	return s.connection.GetID()
 }
 
+func (s *stream) Connection() IConnection {
+	return s.connection
+}
+
 func (s *stream) MessageType() int {
 	return s.messageType
 }
@@ -56,17 +61,10 @@ func (s *stream) Context() context.Context {
 }
 
 func (s *stream) Send(message []byte) error {
-	var err error
-	if s.messageType == BinaryMessage {
-		err = s.hub.SendBinary(s.ctx, message, s.connection.GetID())
-	} else if s.messageType == TextMessage {
-		err = s.hub.SendText(s.ctx, string(message), s.connection.GetID())
-	}
-	return err
+	return s.hub.Send(s.ctx, s.messageType, message, s.connection.GetID())
 }
 
-// SendProtoMessage 发送原始proto消息，不会经过封装
+// SendProtoMessage 将proto.Message转化为二进制、JSON之后发送
 func (s *stream) SendProtoMessage(message proto.Message) error {
-	bytes := ProtoMarshal(s.messageType, message)
-	return s.Send(bytes)
+	return s.hub.SendProtoMessage(s.ctx, s.messageType, message, s.connection.GetID())
 }

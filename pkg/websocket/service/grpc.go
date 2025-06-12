@@ -8,9 +8,9 @@ import (
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/app"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/base"
 	wsProto "gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/proto"
 )
@@ -118,7 +118,7 @@ func (g *GrpcService) OnRecvMessage(ctx context.Context, connection base.IConnec
 
 		var response proto.Message
 		var err error
-		_grpcStream := &grpcStream{ctx: sessionCtx, hub: g.hub, connection: connection, request: request, method: method, messageType: messageType}
+		_grpcStream := &grpcStream{ctx: sessionCtx, grpcHandler: g, connection: connection, request: request, method: method, messageType: messageType}
 
 		if method.requestStream || method.responseStream {
 			err = g.callStreamService(_grpcStream)
@@ -129,7 +129,7 @@ func (g *GrpcService) OnRecvMessage(ctx context.Context, connection base.IConnec
 		if err != nil {
 			g.sendError(sessionCtx, connection, messageType, request, err)
 		} else if response != nil {
-			if err = sendGrpcResponse(sessionCtx, g.hub, connection, messageType, request, response); err != nil {
+			if err = g.sendResponse(sessionCtx, connection, messageType, request, response); err != nil {
 				g.sendError(sessionCtx, connection, messageType, request, err)
 			}
 		}
@@ -198,33 +198,26 @@ func (g *GrpcService) callStreamService(stream *grpcStream) error {
 	return stream.method.streamDesc.Handler(stream.method.server, stream)
 }
 
+func (g *GrpcService) sendResponse(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, responseData proto.Message) error {
+	data, _ := anypb.New(responseData)
+
+	response := MakeGrpcResponse(
+		lo.If(request.MessageId != nil && request.GetMessageId() != "", request.GetMessageId()).ElseF(func() string {
+			return uuid.New().String()
+		}), request.Service, request.Method, data, nil)
+
+	return g.hub.SendProtoMessage(ctx, messageType, response, connection.GetID())
+}
+
 func (g *GrpcService) sendError(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, err error) {
-	response := &wsProto.WebsocketGrpcResponse{
-		Service: request.Service,
-		Method:  request.Method,
-		MessageId: lo.If(request.MessageId != nil && request.GetMessageId() != "", request.MessageId).ElseF(func() *string {
-			return utils.Ptr(uuid.New().String())
+	response := MakeGrpcResponse(
+		lo.If(request.MessageId != nil && request.GetMessageId() != "", request.GetMessageId()).ElseF(func() string {
+			return uuid.New().String()
 		}),
-		Code: lo.IfF(err != nil, func() int32 {
-			res := int32(errors.Code(err))
-			if res == 0 {
-				res = 400
-			}
-			return res
-		}).Else(0),
-		Message: lo.IfF(err != nil, func() string {
-			return err.Error()
-		}).Else(""),
-	}
+		request.Service, request.Method, nil, err,
+	)
 
-	bytes := base.ProtoMarshal(messageType, response)
-
-	if messageType == base.BinaryMessage {
-		err = g.hub.SendBinary(ctx, bytes, connection.GetID())
-	} else if messageType == base.TextMessage {
-		err = g.hub.SendText(ctx, string(bytes), connection.GetID())
-	}
-
+	err = g.hub.SendProtoMessage(ctx, messageType, response, connection.GetID())
 	if err != nil {
 		g.logger.WithContext(ctx).Errorf("send error response error: %v", err)
 	}

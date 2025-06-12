@@ -42,6 +42,7 @@ type Connection struct {
 	fails      atomic.Uint32 // 读取、发送失败连续次数，只要成功发送、接收一次消息，就会重置为0
 
 	lastRecvAt time.Time // 最近一次接收到消息的时间
+	lastPongAt time.Time // 最近一次收到pong的时间
 	lastSendAt time.Time // 最近一次发送消息的时间
 	createdAt  time.Time // 创建时间
 
@@ -117,6 +118,10 @@ func (s *Connection) SetContext(ctx context.Context) {
 
 func (s *Connection) touchLastRecvAt() {
 	s.lastRecvAt = time.Now()
+}
+
+func (s *Connection) touchLastPongAt() {
+	s.lastPongAt = time.Now()
 }
 
 func (s *Connection) touchLastSendAt() {
@@ -259,7 +264,7 @@ func (s *Connection) WaitForReceiving() {
 			s.logger.Warn(errors.Wrapf(err, "SetPongHandler SetReadDeadline failed. connection = %s", s))
 		}
 		// 先更新最近一次接收消息的时间，再调用handler
-		s.touchLastRecvAt()
+		s.touchLastPongAt()
 		_ = s.handleCaller.CallPongHandler(s)
 		return nil
 	})
@@ -449,6 +454,10 @@ func (s *Connection) GetLastSendAt() time.Time {
 
 func (s *Connection) GetLastRecvAt() time.Time {
 	return s.lastRecvAt
+}
+
+func (s *Connection) GetLastPongAt() time.Time {
+	return s.lastPongAt
 }
 
 func (s *Connection) String() string {
