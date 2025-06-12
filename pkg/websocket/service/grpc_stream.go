@@ -35,7 +35,11 @@ func getGrpcRequestData(request *wsProto.WebsocketGrpcRequest) func(any) error {
 	}
 }
 
-func MakeGrpcResponse(messageId, serviceName, methodName string, data *anypb.Any, err error) *wsProto.WebsocketGrpcResponse {
+func MakeGrpcResponse(messageId, serviceName, methodName string, responseData proto.Message, err error) *wsProto.WebsocketGrpcResponse {
+	var data *anypb.Any
+	if responseData != nil {
+		data, _ = anypb.New(responseData)
+	}
 	return &wsProto.WebsocketGrpcResponse{
 		Service:   serviceName,
 		Method:    methodName,

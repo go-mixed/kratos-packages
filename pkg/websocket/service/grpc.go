@@ -8,7 +8,6 @@ import (
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/app"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/base"
@@ -199,12 +198,11 @@ func (g *GrpcService) callStreamService(stream *grpcStream) error {
 }
 
 func (g *GrpcService) sendResponse(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, responseData proto.Message) error {
-	data, _ := anypb.New(responseData)
 
 	response := MakeGrpcResponse(
 		lo.If(request.MessageId != nil && request.GetMessageId() != "", request.GetMessageId()).ElseF(func() string {
 			return uuid.New().String()
-		}), request.Service, request.Method, data, nil)
+		}), request.Service, request.Method, responseData, nil)
 
 	return g.hub.SendProtoMessage(ctx, messageType, response, connection.GetID())
 }
