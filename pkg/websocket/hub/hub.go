@@ -64,7 +64,9 @@ func (s *Hub) Running() bool {
 	return s.running.Load()
 }
 
-// RegisterHandlers 注册handler
+// RegisterHandlers 注册handler。
+// handler的函数均是在基于Connection的单独的goroutine中执行（除了Start/Stop）
+// The methods in wsBase.IHandler is called in a dedicated goroutine for each ws connection. So one connection block is not blocking the other.
 func (s *Hub) RegisterHandlers(handlers ...wsBase.IHandler) {
 	s.handlers = append(s.handlers, handlers...)
 }

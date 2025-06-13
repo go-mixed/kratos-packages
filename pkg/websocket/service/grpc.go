@@ -109,8 +109,8 @@ func (g *GrpcService) OnRecvMessage(ctx context.Context, connection base.IConnec
 		return nil
 	}
 
-	// 使用协程处理
-	go func(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, method grpcMethodInfo) {
+	// 在作用域中阻塞调用
+	func(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, method grpcMethodInfo) {
 		// ctx的生命周期只在响应内有效
 		sessionCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
