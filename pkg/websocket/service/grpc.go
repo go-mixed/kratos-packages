@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-kratos/kratos/v2/errors"
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -199,21 +198,13 @@ func (g *GrpcService) callStreamService(stream *grpcStream) error {
 
 func (g *GrpcService) sendResponse(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, responseData proto.Message) error {
 
-	response := MakeGrpcResponse(
-		lo.If(request.MessageId != nil && request.GetMessageId() != "", request.GetMessageId()).ElseF(func() string {
-			return uuid.New().String()
-		}), request.Service, request.Method, responseData, nil)
+	response := MakeGrpcResponse(request.GetMessageId(), request.Service, request.Method, responseData, nil)
 
 	return g.hub.SendProtoMessage(ctx, messageType, response, connection.GetID())
 }
 
 func (g *GrpcService) sendError(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, err error) {
-	response := MakeGrpcResponse(
-		lo.If(request.MessageId != nil && request.GetMessageId() != "", request.GetMessageId()).ElseF(func() string {
-			return uuid.New().String()
-		}),
-		request.Service, request.Method, nil, err,
-	)
+	response := MakeGrpcResponse(request.GetMessageId(), request.Service, request.Method, nil, err)
 
 	err = g.hub.SendProtoMessage(ctx, messageType, response, connection.GetID())
 	if err != nil {
