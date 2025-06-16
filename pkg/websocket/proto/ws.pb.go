@@ -22,31 +22,30 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type WebsocketGrpcRequest struct {
+type WebsocketRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MessageId     *string                `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3,oneof" json:"message_id,omitempty"`
 	Service       string                 `protobuf:"bytes,2,opt,name=service,proto3" json:"service,omitempty"`
 	Method        string                 `protobuf:"bytes,3,opt,name=method,proto3" json:"method,omitempty"`
-	Type          string                 `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
-	Data          *anypb.Any             `protobuf:"bytes,5,opt,name=data,proto3" json:"data,omitempty"`
+	Data          *anypb.Any             `protobuf:"bytes,4,opt,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *WebsocketGrpcRequest) Reset() {
-	*x = WebsocketGrpcRequest{}
+func (x *WebsocketRequest) Reset() {
+	*x = WebsocketRequest{}
 	mi := &file_pkg_websocket_proto_ws_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *WebsocketGrpcRequest) String() string {
+func (x *WebsocketRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*WebsocketGrpcRequest) ProtoMessage() {}
+func (*WebsocketRequest) ProtoMessage() {}
 
-func (x *WebsocketGrpcRequest) ProtoReflect() protoreflect.Message {
+func (x *WebsocketRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_websocket_proto_ws_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -58,47 +57,40 @@ func (x *WebsocketGrpcRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use WebsocketGrpcRequest.ProtoReflect.Descriptor instead.
-func (*WebsocketGrpcRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use WebsocketRequest.ProtoReflect.Descriptor instead.
+func (*WebsocketRequest) Descriptor() ([]byte, []int) {
 	return file_pkg_websocket_proto_ws_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *WebsocketGrpcRequest) GetMessageId() string {
+func (x *WebsocketRequest) GetMessageId() string {
 	if x != nil && x.MessageId != nil {
 		return *x.MessageId
 	}
 	return ""
 }
 
-func (x *WebsocketGrpcRequest) GetService() string {
+func (x *WebsocketRequest) GetService() string {
 	if x != nil {
 		return x.Service
 	}
 	return ""
 }
 
-func (x *WebsocketGrpcRequest) GetMethod() string {
+func (x *WebsocketRequest) GetMethod() string {
 	if x != nil {
 		return x.Method
 	}
 	return ""
 }
 
-func (x *WebsocketGrpcRequest) GetType() string {
-	if x != nil {
-		return x.Type
-	}
-	return ""
-}
-
-func (x *WebsocketGrpcRequest) GetData() *anypb.Any {
+func (x *WebsocketRequest) GetData() *anypb.Any {
 	if x != nil {
 		return x.Data
 	}
 	return nil
 }
 
-type WebsocketGrpcResponse struct {
+type WebsocketResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MessageId     *string                `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3,oneof" json:"message_id,omitempty"`
 	Service       string                 `protobuf:"bytes,2,opt,name=service,proto3" json:"service,omitempty"`
@@ -111,20 +103,20 @@ type WebsocketGrpcResponse struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *WebsocketGrpcResponse) Reset() {
-	*x = WebsocketGrpcResponse{}
+func (x *WebsocketResponse) Reset() {
+	*x = WebsocketResponse{}
 	mi := &file_pkg_websocket_proto_ws_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *WebsocketGrpcResponse) String() string {
+func (x *WebsocketResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*WebsocketGrpcResponse) ProtoMessage() {}
+func (*WebsocketResponse) ProtoMessage() {}
 
-func (x *WebsocketGrpcResponse) ProtoReflect() protoreflect.Message {
+func (x *WebsocketResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_websocket_proto_ws_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -136,54 +128,54 @@ func (x *WebsocketGrpcResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use WebsocketGrpcResponse.ProtoReflect.Descriptor instead.
-func (*WebsocketGrpcResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use WebsocketResponse.ProtoReflect.Descriptor instead.
+func (*WebsocketResponse) Descriptor() ([]byte, []int) {
 	return file_pkg_websocket_proto_ws_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *WebsocketGrpcResponse) GetMessageId() string {
+func (x *WebsocketResponse) GetMessageId() string {
 	if x != nil && x.MessageId != nil {
 		return *x.MessageId
 	}
 	return ""
 }
 
-func (x *WebsocketGrpcResponse) GetService() string {
+func (x *WebsocketResponse) GetService() string {
 	if x != nil {
 		return x.Service
 	}
 	return ""
 }
 
-func (x *WebsocketGrpcResponse) GetMethod() string {
+func (x *WebsocketResponse) GetMethod() string {
 	if x != nil {
 		return x.Method
 	}
 	return ""
 }
 
-func (x *WebsocketGrpcResponse) GetType() string {
+func (x *WebsocketResponse) GetType() string {
 	if x != nil {
 		return x.Type
 	}
 	return ""
 }
 
-func (x *WebsocketGrpcResponse) GetData() *anypb.Any {
+func (x *WebsocketResponse) GetData() *anypb.Any {
 	if x != nil {
 		return x.Data
 	}
 	return nil
 }
 
-func (x *WebsocketGrpcResponse) GetCode() int32 {
+func (x *WebsocketResponse) GetCode() int32 {
 	if x != nil {
 		return x.Code
 	}
 	return 0
 }
 
-func (x *WebsocketGrpcResponse) GetMessage() string {
+func (x *WebsocketResponse) GetMessage() string {
 	if x != nil {
 		return x.Message
 	}
@@ -194,16 +186,15 @@ var File_pkg_websocket_proto_ws_proto protoreflect.FileDescriptor
 
 const file_pkg_websocket_proto_ws_proto_rawDesc = "" +
 	"\n" +
-	"\x1cpkg/websocket/proto/ws.proto\x12\twebsocket\x1a\x19google/protobuf/any.proto\"\xb9\x01\n" +
-	"\x14WebsocketGrpcRequest\x12\"\n" +
+	"\x1cpkg/websocket/proto/ws.proto\x12\twebsocket\x1a\x19google/protobuf/any.proto\"\xa1\x01\n" +
+	"\x10WebsocketRequest\x12\"\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tH\x00R\tmessageId\x88\x01\x01\x12\x18\n" +
 	"\aservice\x18\x02 \x01(\tR\aservice\x12\x16\n" +
-	"\x06method\x18\x03 \x01(\tR\x06method\x12\x12\n" +
-	"\x04type\x18\x04 \x01(\tR\x04type\x12(\n" +
-	"\x04data\x18\x05 \x01(\v2\x14.google.protobuf.AnyR\x04dataB\r\n" +
-	"\v_message_id\"\xe8\x01\n" +
-	"\x15WebsocketGrpcResponse\x12\"\n" +
+	"\x06method\x18\x03 \x01(\tR\x06method\x12(\n" +
+	"\x04data\x18\x04 \x01(\v2\x14.google.protobuf.AnyR\x04dataB\r\n" +
+	"\v_message_id\"\xe4\x01\n" +
+	"\x11WebsocketResponse\x12\"\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tH\x00R\tmessageId\x88\x01\x01\x12\x18\n" +
 	"\aservice\x18\x02 \x01(\tR\aservice\x12\x16\n" +
@@ -230,13 +221,13 @@ func file_pkg_websocket_proto_ws_proto_rawDescGZIP() []byte {
 
 var file_pkg_websocket_proto_ws_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_pkg_websocket_proto_ws_proto_goTypes = []any{
-	(*WebsocketGrpcRequest)(nil),  // 0: websocket.WebsocketGrpcRequest
-	(*WebsocketGrpcResponse)(nil), // 1: websocket.WebsocketGrpcResponse
-	(*anypb.Any)(nil),             // 2: google.protobuf.Any
+	(*WebsocketRequest)(nil),  // 0: websocket.WebsocketRequest
+	(*WebsocketResponse)(nil), // 1: websocket.WebsocketResponse
+	(*anypb.Any)(nil),         // 2: google.protobuf.Any
 }
 var file_pkg_websocket_proto_ws_proto_depIdxs = []int32{
-	2, // 0: websocket.WebsocketGrpcRequest.data:type_name -> google.protobuf.Any
-	2, // 1: websocket.WebsocketGrpcResponse.data:type_name -> google.protobuf.Any
+	2, // 0: websocket.WebsocketRequest.data:type_name -> google.protobuf.Any
+	2, // 1: websocket.WebsocketResponse.data:type_name -> google.protobuf.Any
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name

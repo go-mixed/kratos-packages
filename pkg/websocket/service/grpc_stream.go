@@ -3,20 +3,16 @@ package service
 import (
 	"context"
 	"github.com/go-kratos/kratos/v2/errors"
-	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/base"
 	wsProto "gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/proto"
-	"strings"
 )
 
 // getGrpcRequestData 获取grpc请求的Data，转成proto.Message
-func getGrpcRequestData(request *wsProto.WebsocketGrpcRequest) func(any) error {
+func getGrpcRequestData(request *wsProto.WebsocketRequest) func(any) error {
 	return func(in any) error {
 		msg, ok := in.(proto.Message)
 		if request.Data == nil || !ok {
@@ -36,46 +32,11 @@ func getGrpcRequestData(request *wsProto.WebsocketGrpcRequest) func(any) error {
 	}
 }
 
-// MakeGrpcResponse 创建grpc响应
-func MakeGrpcResponse(messageId, serviceName, methodName string, responseData proto.Message, err error) *wsProto.WebsocketGrpcResponse {
-	var data *anypb.Any
-	if responseData != nil {
-		data, _ = anypb.New(responseData)
-	}
-	return &wsProto.WebsocketGrpcResponse{
-		Service: serviceName,
-		Method:  methodName,
-		Type: lo.IfF(data != nil, func() string {
-			return strings.ReplaceAll(data.GetTypeUrl(), "type.googleapis.com/", "")
-		}).Else(""),
-		MessageId: utils.Ptr(lo.If(messageId != "", messageId).ElseF(func() string {
-			// uuid.v7 or uuid
-			u, err1 := uuid.NewV7()
-			if err1 != nil {
-				return uuid.New().String()
-			}
-			return u.String()
-		})),
-
-		Code: lo.IfF(err != nil, func() int32 {
-			if code := errors.Code(err); code > 0 {
-				return int32(code)
-			}
-			return 400
-		}).Else(0),
-		Message: lo.IfF(err != nil, func() string {
-			return err.Error()
-		}).Else(""),
-		Data: data,
-	}
-
-}
-
 type grpcStream struct {
 	ctx         context.Context
 	grpcHandler *GrpcService
 	connection  base.IConnection
-	request     *wsProto.WebsocketGrpcRequest
+	request     *wsProto.WebsocketRequest
 	method      grpcMethodInfo
 	messageType int
 }

@@ -95,7 +95,7 @@ func (g *GrpcService) OnDisconnect(ctx context.Context, connection base.IConnect
 }
 
 func (g *GrpcService) OnRecvMessage(ctx context.Context, connection base.IConnection, messageType int, message []byte) error {
-	request := &wsProto.WebsocketGrpcRequest{}
+	request := &wsProto.WebsocketRequest{}
 
 	if err := base.ProtoUnmarshal(messageType, message, request); err != nil {
 		g.sendError(ctx, connection, messageType, request, err)
@@ -109,7 +109,7 @@ func (g *GrpcService) OnRecvMessage(ctx context.Context, connection base.IConnec
 	}
 
 	// 在作用域中阻塞调用
-	func(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, method grpcMethodInfo) {
+	func(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketRequest, method grpcMethodInfo) {
 		// ctx的生命周期只在响应内有效
 		sessionCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
@@ -196,15 +196,15 @@ func (g *GrpcService) callStreamService(stream *grpcStream) error {
 	return stream.method.streamDesc.Handler(stream.method.server, stream)
 }
 
-func (g *GrpcService) sendResponse(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, responseData proto.Message) error {
+func (g *GrpcService) sendResponse(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketRequest, responseData proto.Message) error {
 
-	response := MakeGrpcResponse(request.GetMessageId(), request.Service, request.Method, responseData, nil)
+	response := base.MakeWebsocketResponse(request.GetMessageId(), request.Service, request.Method, responseData, nil)
 
 	return g.hub.SendProtoMessage(ctx, messageType, response, connection.GetID())
 }
 
-func (g *GrpcService) sendError(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketGrpcRequest, err error) {
-	response := MakeGrpcResponse(request.GetMessageId(), request.Service, request.Method, nil, err)
+func (g *GrpcService) sendError(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketRequest, err error) {
+	response := base.MakeWebsocketResponse(request.GetMessageId(), request.Service, request.Method, nil, err)
 
 	err = g.hub.SendProtoMessage(ctx, messageType, response, connection.GetID())
 	if err != nil {
