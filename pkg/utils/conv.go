@@ -39,7 +39,9 @@ func ToString(v any, otherTypeAsJson bool) string {
 		return v.(error).Error()
 	default:
 		// 针对 type ABC string 这种需要使用typeof.kind检查
-		switch reflect.TypeOf(v).Kind() {
+		tOf := reflect.TypeOf(v)
+		vOf := reflect.ValueOf(v)
+		switch tOf.Kind() {
 		case reflect.Bool:
 			if reflect.ValueOf(v).Bool() {
 				return "true"
@@ -54,7 +56,13 @@ func ToString(v any, otherTypeAsJson bool) string {
 		default: // 均不符合 则使用json来处理
 			if otherTypeAsJson {
 				j, _ := json.Marshal(v)
-				return string(j)
+				js := string(j)
+
+				// 空指针，并且等于null，说明不是struct，返回空字符串
+				if tOf.Kind() == reflect.Ptr && vOf.IsNil() && js == "null" {
+					return ""
+				}
+				return js
 			} else {
 				return ""
 			}
