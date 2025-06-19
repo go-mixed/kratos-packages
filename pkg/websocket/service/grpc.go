@@ -102,6 +102,8 @@ func (g *GrpcService) OnRecvMessage(ctx context.Context, connection base.IConnec
 		return nil
 	}
 
+	ctx = wsProto.NewContext(ctx, request)
+
 	method, err := g.getServiceMethod(request.GetService(), request.GetMethod())
 	if err != nil {
 		g.sendError(ctx, connection, messageType, request, err)
@@ -126,7 +128,7 @@ func (g *GrpcService) OnRecvMessage(ctx context.Context, connection base.IConnec
 
 		if err != nil {
 			g.sendError(sessionCtx, connection, messageType, request, err)
-		} else if response != nil {
+		} else if response != nil { // 当response为空时，不需要发送响应。如果希望异步回复，返回nil
 			if err = g.sendResponse(sessionCtx, connection, messageType, request, response); err != nil {
 				g.sendError(sessionCtx, connection, messageType, request, err)
 			}
@@ -197,14 +199,13 @@ func (g *GrpcService) callStreamService(stream *grpcStream) error {
 }
 
 func (g *GrpcService) sendResponse(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketRequest, responseData proto.Message) error {
-
-	response := base.MakeWebsocketResponse(request.GetMessageId(), request.Service, request.Method, responseData, nil)
-
+	// 发送响应
+	response := wsProto.MakeWebsocketResponse(request.GetMessageId(), request.Service, request.Method, responseData, nil)
 	return g.hub.SendProtoMessage(ctx, messageType, response, connection.GetID())
 }
 
 func (g *GrpcService) sendError(ctx context.Context, connection base.IConnection, messageType int, request *wsProto.WebsocketRequest, err error) {
-	response := base.MakeWebsocketResponse(request.GetMessageId(), request.Service, request.Method, nil, err)
+	response := wsProto.MakeWebsocketResponse(request.GetMessageId(), request.Service, request.Method, nil, err)
 
 	err = g.hub.SendProtoMessage(ctx, messageType, response, connection.GetID())
 	if err != nil {
