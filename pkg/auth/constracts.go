@@ -20,12 +20,15 @@ const (
 
 	// ExpiredReason holds the error ExpiredReason.
 	ExpiredReason string = "EXPIRED"
+
+	LimitedReason string = "LIMITED"
 )
 
 var (
-	ErrMissingToken        = errors.Unauthorized(UnauthorizedReason, "token is missing")
+	ErrMissingToken        = errors.Unauthorized(UnauthorizedReason, "token is missing or invalid")
 	ErrWrongContext        = errors.Unauthorized(UnauthorizedReason, "Wrong context for middleware")
 	ErrTokenExpired        = errors.New(419, ExpiredReason, "token is expired")
+	ErrRequestLimit        = errors.New(429, LimitedReason, "request count reaches the limit of the token")
 	ErrTokenInvalid        = errors.Unauthorized(UnauthorizedReason, "token is invalid or disabled")
 	ErrGuardNotFound       = errors.Unauthorized(UnauthorizedReason, "guard not found")
 	ErrGuardNotMatch       = errors.Forbidden(ForbiddenReason, "the authorization guard not match the request guard")
