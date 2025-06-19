@@ -12,5 +12,7 @@ type IAccessToken interface {
 	GetExpiredAt() time.Time
 	SetExpiredAt(val time.Time)
 	IsEnabled() bool
+	GetRequestLimit() int32
+	GetRequestCount() int64
 	IGuard
 }

@@ -40,7 +40,6 @@ func ToString(v any, otherTypeAsJson bool) string {
 	default:
 		// 针对 type ABC string 这种需要使用typeof.kind检查
 		tOf := reflect.TypeOf(v)
-		vOf := reflect.ValueOf(v)
 		switch tOf.Kind() {
 		case reflect.Bool:
 			if reflect.ValueOf(v).Bool() {
@@ -58,8 +57,8 @@ func ToString(v any, otherTypeAsJson bool) string {
 				j, _ := json.Marshal(v)
 				js := string(j)
 
-				// 空指针，并且等于null，说明不是struct，返回空字符串
-				if tOf.Kind() == reflect.Ptr && vOf.IsNil() && js == "null" {
+				// 空指针，并且等于null，返回空字符串
+				if js == "null" && IsNil(v) {
 					return ""
 				}
 				return js
