@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"github.com/go-kratos/kratos/v2/transport"
+	"github.com/pkg/errors"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/requestid"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/base"
 	"net"
@@ -13,9 +14,6 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/pkg/errors"
 
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
 )
@@ -38,7 +36,6 @@ type Server struct {
 	upgrader *base.WsUpgrader
 	network  string
 	address  string
-	timeout  time.Duration
 	path     string
 }
 
@@ -52,7 +49,6 @@ func NewServer(
 
 		network: "tcp",
 		address: ":0",
-		timeout: time.Second,
 		path:    "/ws",
 		upgrader: &base.WsUpgrader{
 			ReadBufferSize:  1024,
@@ -108,7 +104,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Errorf("[WS]ServeHTTP upgrade error, request = %+v", r, err)
 		s.responseError(w, http.StatusBadRequest, err)
-		_ = wsConn.Close()
 		return
 	}
 

@@ -1,8 +1,6 @@
 package websocket
 
 import (
-	"time"
-
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
 )
 
@@ -19,13 +17,6 @@ func WithNetwork(network string) ServerOption {
 func WithAddress(addr string) ServerOption {
 	return func(s *Server) {
 		s.address = addr
-	}
-}
-
-// WithTimeout 设置超时时间
-func WithTimeout(timeout time.Duration) ServerOption {
-	return func(s *Server) {
-		s.timeout = timeout
 	}
 }
 
