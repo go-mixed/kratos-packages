@@ -166,7 +166,7 @@ func SSEReader(response *http.Response, callback func(sse Sse) error) error {
 	var sse Sse
 	for {
 		line, err := buf.ReadString('\n')
-		if line == "\n" { // double \n means end of event and data
+		if line == "\n" || line == "\r\n" { // double \n means end of event and data
 			if !sse.IsEmpty() {
 				if err = callback(sse); err != nil {
 					return err
@@ -174,7 +174,9 @@ func SSEReader(response *http.Response, callback func(sse Sse) error) error {
 				sse.Reset()
 			}
 		} else if len(line) > 0 {
-			line = line[:len(line)-1] // remove trailing \n
+			// 即使在 Windows 等默认使用 \r\n（CRLF）作为换行符的系统中，SSE 传输时也要求统一使用 \n 作为行终止符，多余的 \r 会被视为字段值的一部分（而非换行符）。
+			// remove trailing \n
+			line = line[:len(line)-1]
 		}
 		if err != nil && err != io.EOF {
 			return err
