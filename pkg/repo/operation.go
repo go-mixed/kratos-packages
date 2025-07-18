@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"github.com/samber/lo"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/clause"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db/cnd"
@@ -28,6 +29,14 @@ func (repo *Repository[T]) Select(query any, args ...any) IOrm[T] {
 	_repo := repo.Clone()
 	_repo.operations.selectors = append(repo.operations.selectors, db.ParamPair{Query: query, Args: args})
 	return _repo
+}
+
+// Only 同Select函数，但是参数是字段名
+func (repo *Repository[T]) Only(columns ...string) IOrm[T] {
+	if len(columns) == 0 {
+		return repo
+	}
+	return repo.Select(columns[0], lo.Map(columns[1:], func(v string, _ int) any { return v })...)
 }
 
 // Omit 排除字段。比如：Omit("name", "age").Find(ctx, cnd.Eq("id", 1))，表示排除name和age字段

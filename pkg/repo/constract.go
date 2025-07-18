@@ -42,6 +42,8 @@ type IOrmOperation[T db.Tabler] interface {
 	//
 	//	FieldName：如果后面传递是Struct，使用Struct的字段名；如果后面传递是map，使用map的key
 	Select(query any, args ...any) IOrm[T]
+	// Only 同Select函数，但是参数是字段名
+	Only(columns ...string) IOrm[T]
 	// Omit 排除字段。比如：Omit("name", "age").Find(ctx, cnd.Eq("id", 1))，表示排除name和age字段
 	//
 	//	FieldName：如果后面传递是Struct，使用Struct的字段名；如果后面传递是map，使用map的key
