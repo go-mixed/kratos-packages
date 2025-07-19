@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/app"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/base"
 	wsProto "gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/proto"
 )
@@ -128,7 +129,9 @@ func (g *GrpcService) OnRecvMessage(ctx context.Context, connection base.IConnec
 
 		if err != nil {
 			g.sendError(sessionCtx, connection, messageType, request, err)
-		} else if response != nil { // 当response为空时，不需要发送响应。如果希望异步回复，返回nil
+		} else if !utils.IsNil(response) {
+			// 此处必须使用IsNil来判断，因为即使在RPC函数中返回nil，但是会经过几次interface封装（callService中），会导致response != nil
+			// 当response为空时，不需要发送响应。如果希望异步回复，返回nil
 			if err = g.sendResponse(sessionCtx, connection, messageType, request, response); err != nil {
 				g.sendError(sessionCtx, connection, messageType, request, err)
 			}
