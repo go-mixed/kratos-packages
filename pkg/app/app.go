@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+
 	"github.com/go-kratos/kratos/v2"
 	"github.com/google/uuid"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/auth"
@@ -41,9 +42,10 @@ func NewApp(
 	}
 	created = true
 	app := &App{
-		id:      uuid.New().String(),
-		name:    name,
-		version: Version,
+		id:       uuid.New().String(),
+		name:     name,
+		version:  Version,
+		metadata: make(map[string]string),
 	}
 	app.ctx = kratos.NewContext(context.Background(), app)
 
@@ -72,6 +74,20 @@ func (a *App) Version() string {
 
 func (a *App) Metadata() map[string]string {
 	return a.metadata
+}
+
+func (a *App) SetMetadata(key, value string) {
+	if a.metadata == nil {
+		a.metadata = make(map[string]string)
+	}
+	a.metadata[key] = value
+}
+
+func (a *App) GetMetadata(key string) string {
+	if a.metadata == nil {
+		return ""
+	}
+	return a.metadata[key]
 }
 
 func (a *App) Endpoint() []string {
