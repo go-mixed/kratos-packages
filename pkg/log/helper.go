@@ -3,14 +3,17 @@ package log
 import (
 	"context"
 	"fmt"
+	"os"
+	"runtime/debug"
+	"strconv"
+	"strings"
+
 	"github.com/go-kratos/kratos/v2"
 	kratosLog "github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/tracing"
 	"github.com/pkg/errors"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/requestid"
 	gormLogger "gorm.io/gorm/logger"
-	"os"
-	"strconv"
 )
 
 // DefaultMessageKey default message key.
@@ -218,5 +221,12 @@ func (h *Helper) Fatalw(keyvals ...any) {
 
 // Printf 提供给Gorm使用的日志接口
 func (h *Helper) Printf(format string, a ...any) {
+	// delayedqueue的recover
+	if strings.HasPrefix(strings.TrimSpace(format), "panic:") {
+		stackTrace := debug.Stack()
+		stackTraceAsRawStringLiteral := strconv.Quote(string(stackTrace))
+		_ = h.kratosLogger.Log(LevelError, "%s stack=%s", fmt.Sprintf(format, a...), stackTraceAsRawStringLiteral)
+		return
+	}
 	_ = h.kratosLogger.Log(LevelInfo, h.sprintfWithStack(format, a...)...)
 }
