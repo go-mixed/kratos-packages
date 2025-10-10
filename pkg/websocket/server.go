@@ -3,10 +3,6 @@ package websocket
 import (
 	"context"
 	"crypto/tls"
-	"github.com/go-kratos/kratos/v2/transport"
-	"github.com/pkg/errors"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/requestid"
-	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/base"
 	"net"
 	"net/http"
 	"net/url"
@@ -14,6 +10,11 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+
+	"github.com/go-kratos/kratos/v2/transport"
+	"github.com/pkg/errors"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/requestid"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/websocket/base"
 
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
 )
@@ -29,7 +30,6 @@ type Server struct {
 	hub    base.IHub
 	logger *log.Helper
 
-	err      error
 	listener net.Listener
 	tlsConf  *tls.Config
 	endpoint *url.URL
@@ -67,11 +67,6 @@ func NewServer(
 			TLSConfig: s.tlsConf,
 		}
 	}
-
-	// 监听/ws的Http请求
-	http.HandleFunc(s.path, s.ServeHTTP)
-
-	s.err = s.listen()
 
 	return s
 }
@@ -142,6 +137,7 @@ func (s *Server) responseError(w http.ResponseWriter, code int, err error) {
 
 // listen 监听server
 func (s *Server) listen() error {
+	var err error
 	if s.listener == nil {
 		lis, err := net.Listen(s.network, s.address)
 		if err != nil {
@@ -164,21 +160,26 @@ func (s *Server) listen() error {
 	}
 	addr = prefix + addr
 
-	s.endpoint, s.err = url.Parse(addr)
+	s.endpoint, err = url.Parse(addr)
 
-	return nil
+	return err
 }
 
 // Endpoint 实现endpoint接口
 func (s *Server) Endpoint() (*url.URL, error) {
-	if s.err != nil {
-		return nil, s.err
-	}
 	return s.endpoint, nil
 }
 
 // Start 开启服务
 func (s *Server) Start(ctx context.Context) error {
+
+	// 监听/ws的Http请求
+	http.HandleFunc(s.path, s.ServeHTTP)
+
+	if err := s.listen(); err != nil {
+		return err
+	}
+
 	logger := s.logger.WithContext(ctx)
 	defer func() {
 		if err := recover(); err != nil {
@@ -189,9 +190,6 @@ func (s *Server) Start(ctx context.Context) error {
 		}
 	}()
 
-	if s.err != nil {
-		return s.err
-	}
 	s.BaseContext = func(net.Listener) context.Context {
 		return ctx
 	}
@@ -220,7 +218,9 @@ func (s *Server) Start(ctx context.Context) error {
 // Stop 停止服务
 func (s *Server) Stop(ctx context.Context) error {
 	s.logger.WithContext(ctx).Info("[WS] server stopping")
+
 	err := s.Shutdown(ctx)
+	s.listener = nil
 
 	s.hub.OnServerStopped(ctx)
 
