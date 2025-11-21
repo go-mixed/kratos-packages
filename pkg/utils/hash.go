@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"bufio"
 	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
@@ -12,18 +11,11 @@ import (
 func MD5(src io.Reader) ([]byte, error) {
 	hash := md5.New()
 
-	chunkSize := 65536
-
-	for buf, reader := make([]byte, chunkSize), bufio.NewReader(src); ; {
-		n, err := reader.Read(buf)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, err
-		}
-		hash.Write(buf[:n])
+	_, err := io.Copy(hash, src)
+	if err != nil {
+		return nil, err
 	}
+
 	return hash.Sum(nil), nil
 }
 
