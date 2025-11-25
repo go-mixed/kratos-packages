@@ -188,7 +188,9 @@ func maxMatchBackward(text string, terms []string, options ...UnicodeNormalizeOp
 //     例: "café" 匹配 "cafe", "naïve" 匹配 "naive"
 //   - IgnoreWidth: 忽略全角半角（建议与 IgnoreCase 组合）
 //     例: "Ｈｅｌｌｏ" 匹配 "Hello"
-//   - Loose: 宽松比较 (= IgnoreCase | IgnoreDiacritics | IgnoreWidth)
+//   - IgnoreCompatibility: 忽略兼容性字符
+//     例: "①②③" 匹配 "123", "ⒶⒷⒸ" 匹配 "ABC"
+//   - Loose: 宽松比较 (= IgnoreCase | IgnoreDiacritics | IgnoreWidth | IgnoreCompatibility)
 //
 // 返回：匹配到的术语集合（无序）
 //
@@ -197,7 +199,7 @@ func maxMatchBackward(text string, terms []string, options ...UnicodeNormalizeOp
 //	MaxMatchExtract("Hello World", []string{"hello", "world"})                          // [] (严格匹配)
 //	MaxMatchExtract("Hello World", []string{"hello", "world"}, IgnoreCase)              // ["hello", "world"]
 //	MaxMatchExtract("café naïve", []string{"cafe", "naive"}, IgnoreCase, IgnoreDiacritics) // ["cafe", "naive"]
-//	MaxMatchExtract("Ｈｅｌｌｏ", []string{"Hello"}, Loose)                              // ["Hello"]
+//	MaxMatchExtract("①ＣＡＦÉ店", []string{"1", "cafe", "店"}, Loose)                    // ["1", "cafe", "店"]
 func MaxMatchExtract(text string, terms []string, options ...UnicodeNormalizeOption) []string {
 	if len(text) == 0 || len(terms) == 0 {
 		return nil
@@ -292,7 +294,9 @@ func MaxMatchReplace(text string, replaceMap map[string]string) string {
 //     例: "café" 匹配 "cafe", "naïve" 匹配 "naive"
 //   - IgnoreWidth: 忽略全角半角（建议与 IgnoreCase 组合）
 //     例: "Ｈｅｌｌｏ" 匹配 "Hello"
-//   - Loose: 宽松比较 (= IgnoreCase | IgnoreDiacritics | IgnoreWidth)
+//   - IgnoreCompatibility: 忽略兼容性字符
+//     例: "①②③" 匹配 "123", "ⒶⒷⒸ" 匹配 "ABC"
+//   - Loose: 宽松比较 (= IgnoreCase | IgnoreDiacritics | IgnoreWidth | IgnoreCompatibility)
 //
 // 返回：匹配到的术语集合（无序，取正向和反向匹配的并集）
 //
@@ -307,6 +311,7 @@ func MaxMatchReplace(text string, replaceMap map[string]string) string {
 //
 //	BiMaxMatchExtract("Hello World", []string{"hello", "world"}, IgnoreCase)              // ["hello", "world"]
 //	BiMaxMatchExtract("café naïve", []string{"cafe", "naive"}, Loose)                     // ["cafe", "naive"]
+//	BiMaxMatchExtract("①ＣＡＦÉ店", []string{"1", "cafe", "店"}, Loose)                   // ["1", "cafe", "店"]
 //	BiMaxMatchExtract("研究生命起源", []string{"研究生", "生命", "起源"})                   // ["研究生", "生命", "起源"]
 func BiMaxMatchExtract(text string, terms []string, options ...UnicodeNormalizeOption) []string {
 	if len(text) == 0 || len(terms) == 0 {

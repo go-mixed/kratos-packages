@@ -243,6 +243,18 @@ func TestRFC5646Language(t *testing.T) {
 			expected: "",
 			wantErr:  true,
 		},
+		{
+			name:     "Unsupported ISO 639-3 code 'abc' should error",
+			input:    "abc",
+			expected: "",
+			wantErr:  true,
+		},
+		{
+			name:     "Unsupported ISO 639-3 code 'mie' should error",
+			input:    "mie",
+			expected: "",
+			wantErr:  true,
+		},
 
 		// 测试地区代码输入
 		{

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
 
@@ -68,6 +69,10 @@ func normalizeRegionShorthand(input string) string {
 //   - zh -> zh-CN, en -> en-US, ko -> ko-KR
 //   - cn -> zh-CN, tw -> zh-TW, us -> en-US
 //   - zh-CN -> zh-CN (验证并规范化)
+//
+// 注意:
+//   - 仅支持主流语言代码，不支持冷门的 ISO 639-3 语言代码
+//   - 如需支持更多语言，请添加到 defaultRegions 映射表中
 func NormalizeRFC5646Language(locale string) (string, error) {
 	// 预处理: 将常见的地区简写转换为语言标签
 	// 这样用户输入 "cn", "tw", "hk" 等也能正确处理
@@ -89,6 +94,7 @@ func NormalizeRFC5646Language(locale string) (string, error) {
 	// 没有明确地区信息,根据语言代码补充默认地区
 	// 获取基础语言(不包含脚本和地区)
 	base, _ := tag.Base()
+	baseStr := base.String()
 
 	// 定义默认地区映射 (按语言使用人口和重要性排序)
 	defaultRegions := map[string]string{
@@ -197,15 +203,15 @@ func NormalizeRFC5646Language(locale string) (string, error) {
 	}
 
 	// 查找默认地区
-	baseStr := base.String()
 	if region, ok := defaultRegions[baseStr]; ok {
 		// 使用 language.Make 创建新的标签
 		newTag := language.MustParse(baseStr + "-" + region)
 		return newTag.String(), nil
 	}
 
-	// 没有默认地区映射,返回原始标签
-	return tag.String(), nil
+	// 没有默认地区映射，拒绝不支持的语言代码
+	// 返回错误，提示用户该语言代码不被支持
+	return "", fmt.Errorf("unsupported language code: %s (please use common language codes like zh, en, ja, etc.)", baseStr)
 }
 
 // UnicodeNormalizeOption 定义 Unicode 字符串规范化选项
@@ -277,7 +283,8 @@ func (opt UnicodeNormalizeOption) isCompatibilityIgnore() bool {
 }
 
 // UnicodeCompare 判断两个 Unicode 字符串是否相等
-// 支持忽略大小写、变音符号、全角半角等选项
+// 支持忽略大小写、变音符号、全角半角、兼容性字符等选项
+// 除了emoji之外，其它规则和MySQL 8的utf8mb4_unicode_ci保持一致
 //
 // 参数：
 //   - str1, str2: 要比较的两个字符串
@@ -286,6 +293,7 @@ func (opt UnicodeNormalizeOption) isCompatibilityIgnore() bool {
 //   - IgnoreCase: 忽略大小写
 //   - IgnoreDiacritics: 忽略变音符号
 //   - IgnoreWidth: 忽略全角半角
+//   - IgnoreCompatibility: 忽略兼容性字符
 //   - Loose: 宽松比较（以上所有选项的组合）
 //
 // 示例:
@@ -294,6 +302,7 @@ func (opt UnicodeNormalizeOption) isCompatibilityIgnore() bool {
 //	UnicodeCompare("café", "cafe", IgnoreCase, IgnoreDiacritics)    // true
 //	UnicodeCompare("Straße", "strasse", IgnoreCase)                 // true (ß -> ss)
 //	UnicodeCompare("ＨＥＬＬＯ", "hello", IgnoreCase, IgnoreWidth)   // true
+//	UnicodeCompare("①②③", "123", IgnoreCompatibility)              // true (带圈数字)
 //
 // 实现说明:
 //   - 使用 UnicodeCanonical 将两个字符串规范化后比较
@@ -316,7 +325,8 @@ func UnicodeCompare(str1, str2 string, options ...UnicodeNormalizeOption) bool {
 	return UnicodeCanonical(str1, options...) == UnicodeCanonical(str2, options...)
 }
 
-// UnicodeCanonical 返回字符串的 Unicode 规范形式
+// UnicodeCanonical 返回字符串的 Unicode 规范形式。
+// 返回的字符串是可读的，不是二进制数据。
 //
 // 参数：
 //   - input: 要规范化的字符串
