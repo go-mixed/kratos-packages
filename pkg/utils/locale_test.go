@@ -464,24 +464,36 @@ func TestUnicodeEqualFold(t *testing.T) {
 			expected: true,
 		},
 
-		// strings.EqualFold 的边缘情况（需要 Loose 模式处理）
+		// Unicode case folding 的标准行为（cases.Fold 能正确处理）
 		{
-			name:     "边缘 - 德语 ß vs SS",
+			name:     "Case folding - 德语 ß → ss",
 			str1:     "Straße",
 			str2:     "STRASSE",
-			expected: false, // IgnoreCase 不足以处理 ß → SS，需要 Loose
+			expected: true, // cases.Fold() 会将 ß 和 SS 都转为 ss
 		},
 		{
-			name:     "边缘 - 连字符 ﬁ",
+			name:     "Case folding - 连字符 ﬁ → fi",
 			str1:     "ﬁnance",
 			str2:     "FINANCE",
-			expected: false, // IgnoreCase 不足以处理连字符展开，需要 Loose
+			expected: true, // cases.Fold() 会将 ﬁ 展开为 fi
 		},
 		{
-			name:     "边缘 - 连字符 ﬂ",
+			name:     "Case folding - 连字符 ﬂ → fl",
 			str1:     "ﬂower",
 			str2:     "FLOWER",
-			expected: false, // IgnoreCase 不足以处理连字符展开，需要 Loose
+			expected: true, // cases.Fold() 会将 ﬂ 展开为 fl
+		},
+		{
+			name:     "Case folding - 希腊语 Σ (词中)",
+			str1:     "ΣΊΓΜΑ",
+			str2:     "σίγμα",
+			expected: true, // cases.Fold() 会将大写 Σ 转为小写 σ
+		},
+		{
+			name:     "Case folding - 希腊语 ς (词尾)",
+			str1:     "τέλος",
+			str2:     "ΤΈΛΟΣ",
+			expected: true, // cases.Fold() 会统一处理词尾 ς
 		},
 	}
 
@@ -771,5 +783,313 @@ func BenchmarkUnicodeCanonical(b *testing.B) {
 		for _, s := range inputs {
 			_ = UnicodeCanonical(s, IgnoreCase)
 		}
+	}
+}
+
+// TestUnicodeCompareDiacritics 测试各种语言的变音符号（Loose 模式）
+// 对应 SQL 中的 french_diaeresis, french_cedilla, french_acute, portuguese_tilde,
+// spanish_tilde, german_umlaut, danish_ring, french_capital_accent 等测试
+//
+// 注意：此测试对标 MySQL utf8mb4_unicode_ci 排序规则的实际行为
+//
+// 已知差异（Go 无法复现）：
+// 1. emoji_different: MySQL 将 '😀' = '🙂' 视为相等 (1)，但这不符合 Unicode 标准
+//   - 原因：MySQL 的 utf8mb4_unicode_ci 可能对 emoji 使用简化的排序权重
+//   - Go 行为：遵循 Unicode 标准，不同 emoji 码点不相等
+//   - 结论：这是 MySQL 特有行为，不建议依赖
+func TestUnicodeCompareDiacritics(t *testing.T) {
+	tests := []struct {
+		name     string
+		str1     string
+		str2     string
+		expected bool
+		comment  string
+	}{
+		// 法语变音符号
+		{
+			name:     "French diaeresis - naïve",
+			str1:     "naïve",
+			str2:     "naive",
+			expected: true,
+			comment:  "法语分音符（¨）",
+		},
+		{
+			name:     "French cedilla - façade",
+			str1:     "façade",
+			str2:     "facade",
+			expected: true,
+			comment:  "法语下加符（ç）",
+		},
+		{
+			name:     "French acute - élève",
+			str1:     "élève",
+			str2:     "eleve",
+			expected: true,
+			comment:  "法语尖音符（é/è）",
+		},
+		{
+			name:     "French capital accent - Élodie",
+			str1:     "Élodie",
+			str2:     "Elodie",
+			expected: true,
+			comment:  "法语大写尖音符",
+		},
+
+		// 葡萄牙语波浪号
+		{
+			name:     "Portuguese tilde - pão",
+			str1:     "pão",
+			str2:     "pao",
+			expected: true,
+			comment:  "葡萄牙语波浪号（ã）",
+		},
+
+		// 西班牙语波浪号
+		{
+			name:     "Spanish tilde - niño",
+			str1:     "niño",
+			str2:     "nino",
+			expected: true,
+			comment:  "西班牙语波浪号（ñ）",
+		},
+
+		// 德语元音变音
+		{
+			name:     "German umlaut - Müller",
+			str1:     "Müller",
+			str2:     "Muller",
+			expected: true,
+			comment:  "德语变音符号（ü）",
+		},
+
+		// 丹麦语/北欧语圆圈
+		{
+			name:     "Danish ring - Århus",
+			str1:     "Århus",
+			str2:     "Arhus",
+			expected: true,
+			comment:  "丹麦语上圆圈（å）",
+		},
+
+		// === SQL 对应测试用例 ===
+		// 以下测试用例对应 MySQL utf8mb4_unicode_ci 的实际执行结果
+		// 注意：MySQL 结果中仅 greek_sigma_fold = 0，其他都 = 1
+
+		// 1. 德语 ß 折叠（SQL: german_ß_fold = 1 ✅）
+		{
+			name:     "SQL: german_ß_fold - Straße vs STRASSE",
+			str1:     "Straße",
+			str2:     "STRASSE",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "德语 ß → ss 大小写折叠",
+		},
+
+		// 2. 土耳其语 I 问题（SQL: turkish_I_issue = 1 ✅, turkish_i_issue = 1 ✅）
+		{
+			name:     "SQL: turkish_I_issue - İSTANBUL vs istanbul",
+			str1:     "İSTANBUL", // İ = U+0130
+			str2:     "istanbul",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "土耳其语 İ vs i",
+		},
+		{
+			name:     "SQL: turkish_i_issue - Istanbul vs istanbul",
+			str1:     "Istanbul",
+			str2:     "istanbul",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "土耳其语普通 I vs i",
+		},
+
+		// 3. 希腊语测试（SQL: greek_sigma_fold = 0 ❌ [唯一失败], greek_accents_fold = 1 ✅）
+		{
+			name:     "SQL: greek_sigma_fold - ΣΊΓΜΑ vs σígμα (ONLY FAIL CASE)",
+			str1:     "ΣΊΓΜΑ",
+			str2:     "σígμα", // í 是拉丁字母 U+00ED，不是希腊字母 ί U+03AF
+			expected: false,   // MySQL: 0 ❌, Go: false ❌ [唯一失败的测试]
+			comment:  "希腊语 Sigma 混合拉丁字母 í - MySQL 和 Go 都不相等",
+		},
+		{
+			name:     "SQL: greek_accents_fold - ΠΕΡΙΣΣΌΤΑΤΟ vs περισσότατο",
+			str1:     "ΠΕΡΙΣΣΌΤΑΤΟ",
+			str2:     "περισσότατο",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "希腊语重音符号折叠",
+		},
+
+		// 补充：使用正确希腊字母的测试（不在原 SQL 中）
+		{
+			name:     "Greek sigma - ΣΊΓΜΑ vs σίγμα (correct Greek)",
+			str1:     "ΣΊΓΜΑ",
+			str2:     "σίγμα", // 使用正确的希腊字母 ί U+03AF
+			expected: true,
+			comment:  "希腊语 Sigma（使用正确的希腊字母 ί）",
+		},
+		{
+			name:     "Greek sigma - final form ς",
+			str1:     "τέλος",
+			str2:     "ΤΈΛΟΣ",
+			expected: true,
+			comment:  "希腊语 Sigma 词尾形式（ς）",
+		},
+		{
+			name:     "Greek sigma - σ vs ς",
+			str1:     "σ",
+			str2:     "ς",
+			expected: true,
+			comment:  "希腊语两种小写 Sigma 形式",
+		},
+
+		// 4. 全角与半角字符（SQL: full_width_* 都 = 1 ✅）
+		{
+			name:     "SQL: full_width_digits - １２３４５６７８９０ vs 1234567890",
+			str1:     "１２３４５６７８９０",
+			str2:     "1234567890",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "全角数字 vs 半角数字",
+		},
+		{
+			name:     "SQL: full_width_letters - ＡＢＣＤＥＦＧ vs ABCDEFG",
+			str1:     "ＡＢＣＤＥＦＧ",
+			str2:     "ABCDEFG",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "全角字母 vs 半角字母",
+		},
+		{
+			name:     "SQL: full_width_symbols - ！＠＃＄％＾＆＊ vs !@#$%^&*",
+			str1:     "！＠＃＄％＾＆＊",
+			str2:     "!@#$%^&*",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "全角符号 vs 半角符号",
+		},
+
+		// 5. 各种语言的变音符号（SQL: 所有都 = 1 ✅）
+		{
+			name:     "SQL: french_accent - café vs cafe",
+			str1:     "café",
+			str2:     "cafe",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "法语尖音符（é）",
+		},
+		{
+			name:     "SQL: french_diaeresis - naïve vs naive",
+			str1:     "naïve",
+			str2:     "naive",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "法语分音符（ï）",
+		},
+		{
+			name:     "SQL: french_cedilla - façade vs facade",
+			str1:     "façade",
+			str2:     "facade",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "法语下加符（ç）",
+		},
+		{
+			name:     "SQL: french_acute - élève vs eleve",
+			str1:     "élève",
+			str2:     "eleve",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "法语尖音符（é/è）",
+		},
+		{
+			name:     "SQL: portuguese_tilde - pão vs pao",
+			str1:     "pão",
+			str2:     "pao",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "葡萄牙语波浪号（ã）",
+		},
+		{
+			name:     "SQL: spanish_tilde - niño vs nino",
+			str1:     "niño",
+			str2:     "nino",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "西班牙语波浪号（ñ）",
+		},
+		{
+			name:     "SQL: german_umlaut - Müller vs Muller",
+			str1:     "Müller",
+			str2:     "Muller",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "德语变音符号（ü）",
+		},
+		{
+			name:     "SQL: danish_ring - Århus vs Arhus",
+			str1:     "Århus",
+			str2:     "Arhus",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "丹麦语上圆圈（å）",
+		},
+		{
+			name:     "SQL: french_capital_accent - Élodie vs Elodie",
+			str1:     "Élodie",
+			str2:     "Elodie",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "法语大写尖音符（É）",
+		},
+
+		// 6. 带圈字符（SQL: circled_numbers = 1 ✅，Go: true ✅）
+		{
+			name:     "SQL: circled_numbers - ①②③ vs 123",
+			str1:     "①②③",
+			str2:     "123",
+			expected: true, // MySQL: 1 ✅, Go: true ✅ [已修复：使用 NFKC]
+			comment:  "带圈数字（使用 NFKC 规范化）",
+		},
+
+		// 7. 兼容性字符（SQL: compatibility_letters = 1 ✅，Go: true ✅）
+		{
+			name:     "SQL: compatibility_letters - ⒶⒷⒸ vs ABC",
+			str1:     "ⒶⒷⒸ",
+			str2:     "ABC",
+			expected: true, // MySQL: 1 ✅, Go: true ✅ [已修复：使用 NFKC]
+			comment:  "带括号的兼容性字母（使用 NFKC 规范化）",
+		},
+
+		// 8. Emoji 表情符号（SQL: emoji_identical = 1 ✅, emoji_different = 1 ⚠️）
+		{
+			name:     "SQL: emoji_identical - 😀😁😂 vs 😀😁😂",
+			str1:     "😀😁😂",
+			str2:     "😀😁😂",
+			expected: true, // MySQL: 1 ✅, Go: true ✅
+			comment:  "相同 emoji",
+		},
+		{
+			name:     "SQL: emoji_different - 😀 vs 🙂",
+			str1:     "😀",
+			str2:     "🙂",
+			expected: false, // MySQL: 1 ✅, Go: false ❌ [差异：MySQL 特殊行为，Go 无法复现]
+			comment:  "不同 emoji（MySQL 将它们视为相等，但 Unicode 标准中它们是不同字符）",
+		},
+
+		// 综合测试（混合多种变音符号）
+		{
+			name:     "Mixed diacritics - café résumé naïve",
+			str1:     "café résumé naïve",
+			str2:     "cafe resume naive",
+			expected: true,
+			comment:  "混合多种法语变音符号",
+		},
+		{
+			name:     "Mixed languages - Müller café niño",
+			str1:     "Müller café niño",
+			str2:     "Muller cafe nino",
+			expected: true,
+			comment:  "混合德语、法语、西班牙语变音符号",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := UnicodeCompare(tt.str1, tt.str2, Loose)
+			if result != tt.expected {
+				t.Errorf("UnicodeCompare(%q, %q, Loose) = %v, want %v\n说明: %s",
+					tt.str1, tt.str2, result, tt.expected, tt.comment)
+
+				// 调试输出：显示规范化后的字符串
+				canonical1 := UnicodeCanonical(tt.str1, Loose)
+				canonical2 := UnicodeCanonical(tt.str2, Loose)
+				t.Logf("规范化后: %q -> %q, %q -> %q", tt.str1, canonical1, tt.str2, canonical2)
+			}
+		})
 	}
 }

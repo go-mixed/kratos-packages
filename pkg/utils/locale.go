@@ -236,10 +236,15 @@ const (
 	// 示例: "Ａ" == "A", "１２３" == "123"
 	IgnoreWidth // 4
 
-	// Loose 宽松比较，等价于 IgnoreCase | IgnoreDiacritics | IgnoreWidth (= 7)
-	// 同时应用所有规范化：case folding + 移除变音符号 + 全角转半角
-	// 示例: "ＣＡＦÉ" == "cafe", "Straße" == "strasse"
-	Loose = IgnoreCase | IgnoreDiacritics | IgnoreWidth // 7
+	// IgnoreCompatibility 忽略兼容性字符差异（使用 NFKC 规范化）
+	// 示例: "①②③" == "123", "ⒶⒷⒸ" == "ABC", "㎡" == "m2"
+	// 注意: 这会将带圈数字、带括号字母、罗马数字、平方米等兼容性字符转换为基本形式
+	IgnoreCompatibility // 8
+
+	// Loose 宽松比较，等价于 IgnoreCase | IgnoreDiacritics | IgnoreWidth | IgnoreCompatibility (= 15)
+	// 同时应用所有规范化：case folding + 移除变音符号 + 全角转半角 + 兼容性字符转换
+	// 示例: "ＣＡＦÉ" == "cafe", "Straße" == "strasse", "①②③" == "123"
+	Loose = IgnoreCase | IgnoreDiacritics | IgnoreWidth | IgnoreCompatibility // 15
 )
 
 // mergeUnicodeNormalizeOptions 合并多个 UnicodeNormalizeOption 为单个选项
@@ -264,6 +269,11 @@ func (opt UnicodeNormalizeOption) isDiacriticsIgnore() bool {
 // isWidthIgnore 检查是否忽略全角半角
 func (opt UnicodeNormalizeOption) isWidthIgnore() bool {
 	return opt&IgnoreWidth != 0
+}
+
+// isCompatibilityIgnore 检查是否忽略兼容性字符
+func (opt UnicodeNormalizeOption) isCompatibilityIgnore() bool {
+	return opt&IgnoreCompatibility != 0
 }
 
 // UnicodeCompare 判断两个 Unicode 字符串是否相等
@@ -315,6 +325,7 @@ func UnicodeCompare(str1, str2 string, options ...UnicodeNormalizeOption) bool {
 //   - IgnoreCase: 转换为 case folding 形式（如 "Straße" -> "strasse"）
 //   - IgnoreDiacritics: 移除变音符号（如 "café" -> "cafe"）
 //   - IgnoreWidth: 全角转半角（如 "Ａ" -> "A"）
+//   - IgnoreCompatibility: 兼容性字符转换（如 "①②③" -> "123", "ⒶⒷⒸ" -> "ABC"）
 //   - Loose: 以上所有选项的组合
 //
 // 注意:
@@ -330,6 +341,13 @@ func UnicodeCanonical(input string, options ...UnicodeNormalizeOption) string {
 	}
 
 	result := input
+
+	// IgnoreCompatibility: 使用 NFKC 规范化（兼容性分解 + 组合）
+	// 注意: 必须在其他转换之前执行，因为 NFKC 会转换字符形式
+	// 例如: "①②③" -> "123", "ⒶⒷⒸ" -> "ABC", "㎡" -> "m2"
+	if opt.isCompatibilityIgnore() {
+		result = norm.NFKC.String(result)
+	}
 
 	// IgnoreCase: 使用 case folding（而非 ToLower）
 	// Case folding 是 Unicode 标准中用于不区分大小写比较的正确方法
