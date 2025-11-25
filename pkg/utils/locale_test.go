@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"strings"
 	"testing"
 
 	"golang.org/x/text/language"
@@ -318,5 +319,457 @@ func TestRFC5646Language(t *testing.T) {
 				t.Errorf("NormalizeRFC5646Language() = %v, want %v", result, tt.expected)
 			}
 		})
+	}
+}
+
+// TestUnicodeEqualFold 测试 Unicode 大小写不敏感比较
+func TestUnicodeEqualFold(t *testing.T) {
+	tests := []struct {
+		name     string
+		str1     string
+		str2     string
+		expected bool
+	}{
+		// ASCII 快速路径
+		{
+			name:     "ASCII - 相同字符串",
+			str1:     "Hello",
+			str2:     "Hello",
+			expected: true,
+		},
+		{
+			name:     "ASCII - 大小写不同",
+			str1:     "Hello World",
+			str2:     "HELLO WORLD",
+			expected: true,
+		},
+		{
+			name:     "ASCII - 混合大小写",
+			str1:     "HeLLo WoRLd",
+			str2:     "hello world",
+			expected: true,
+		},
+		{
+			name:     "ASCII - 不相等",
+			str1:     "Hello",
+			str2:     "World",
+			expected: false,
+		},
+
+		// Unicode 字符
+		{
+			name:     "Unicode - 法语重音",
+			str1:     "café",
+			str2:     "CAFÉ",
+			expected: true,
+		},
+		{
+			name:     "Unicode - 德语 ß 小写",
+			str1:     "Straße",
+			str2:     "straße",
+			expected: true,
+		},
+		{
+			name:     "Unicode - 德语 ẞ 大写",
+			str1:     "STRAẞE",
+			str2:     "straße",
+			expected: true,
+		},
+		{
+			name:     "Unicode - 希腊字母",
+			str1:     "Ελληνικά",
+			str2:     "ελληνικά",
+			expected: true,
+		},
+		{
+			name:     "Unicode - 俄语西里尔字母",
+			str1:     "Привет",
+			str2:     "привет",
+			expected: true,
+		},
+
+		// Unicode 组合字符（NFD vs NFC）
+		{
+			name:     "Unicode - 组合字符 é",
+			str1:     "café", // é = U+00E9 (NFC)
+			str2:     "café", // é = e + ́ (U+0065 + U+0301, NFD)
+			expected: true,
+		},
+		{
+			name:     "Unicode - 组合字符混合大小写",
+			str1:     "CAFÉ", // É = U+00C9 (NFC)
+			str2:     "café", // é = e + ́ (NFD)
+			expected: true,
+		},
+
+		// 边界情况
+		{
+			name:     "边界 - 空字符串",
+			str1:     "",
+			str2:     "",
+			expected: true,
+		},
+		{
+			name:     "边界 - 空字符串 vs 非空",
+			str1:     "",
+			str2:     "hello",
+			expected: false,
+		},
+		{
+			name:     "边界 - 单个字符",
+			str1:     "A",
+			str2:     "a",
+			expected: true,
+		},
+
+		// 混合 ASCII 和 Unicode
+		{
+			name:     "混合 - ASCII + Unicode",
+			str1:     "Hello café",
+			str2:     "HELLO CAFÉ",
+			expected: true,
+		},
+		{
+			name:     "混合 - 中英文",
+			str1:     "Hello 世界",
+			str2:     "HELLO 世界",
+			expected: true,
+		},
+
+		// 土耳其语特殊大小写（注意：语言无关的 Unicode 转换不处理土耳其语特殊规则）
+		{
+			name:     "土耳其语 - ı 小写",
+			str1:     "ışık",
+			str2:     "ışık",
+			expected: true,
+		},
+		{
+			name:     "土耳其语 - Ş 大写",
+			str1:     "BAŞLIK",
+			str2:     "başlik",
+			expected: true,
+		},
+
+		// 北欧语言
+		{
+			name:     "北欧 - 挪威语 ø",
+			str1:     "København",
+			str2:     "københavn",
+			expected: true,
+		},
+		{
+			name:     "北欧 - 瑞典语 å",
+			str1:     "Ångström",
+			str2:     "ångström",
+			expected: true,
+		},
+
+		// strings.EqualFold 的边缘情况（需要 Loose 模式处理）
+		{
+			name:     "边缘 - 德语 ß vs SS",
+			str1:     "Straße",
+			str2:     "STRASSE",
+			expected: false, // IgnoreCase 不足以处理 ß → SS，需要 Loose
+		},
+		{
+			name:     "边缘 - 连字符 ﬁ",
+			str1:     "ﬁnance",
+			str2:     "FINANCE",
+			expected: false, // IgnoreCase 不足以处理连字符展开，需要 Loose
+		},
+		{
+			name:     "边缘 - 连字符 ﬂ",
+			str1:     "ﬂower",
+			str2:     "FLOWER",
+			expected: false, // IgnoreCase 不足以处理连字符展开，需要 Loose
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := UnicodeCompare(tt.str1, tt.str2, IgnoreCase)
+			if result != tt.expected {
+				t.Errorf("UnicodeCompare(%q, %q, IgnoreCase) = %v, want %v", tt.str1, tt.str2, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestUnicodeCompare 测试 Unicode 字符串比较
+func TestUnicodeCompare(t *testing.T) {
+	tests := []struct {
+		name     string
+		str1     string
+		str2     string
+		options  UnicodeNormalizeOption
+		expected bool
+	}{
+		// === 基本测试 ===
+		{
+			name:     "相同字符串",
+			str1:     "Hello",
+			str2:     "Hello",
+			options:  0,
+			expected: true,
+		},
+		{
+			name:     "不同字符串",
+			str1:     "Hello",
+			str2:     "World",
+			options:  0,
+			expected: false,
+		},
+
+		// === IgnoreCase 测试 ===
+		{
+			name:     "忽略大小写 - café vs Café",
+			str1:     "café",
+			str2:     "Café",
+			options:  IgnoreCase,
+			expected: true,
+		},
+		{
+			name:     "忽略大小写 - ASCII",
+			str1:     "Hello World",
+			str2:     "HELLO WORLD",
+			options:  IgnoreCase,
+			expected: true,
+		},
+
+		// === IgnoreDiacritics 测试 ===
+		{
+			name:     "忽略变音符号 - café vs cafe",
+			str1:     "café",
+			str2:     "cafe",
+			options:  IgnoreDiacritics,
+			expected: true, // 单独使用 IgnoreDiacritics 也会相等
+		},
+		{
+			name:     "忽略变音符号+大小写 - CAFÉ vs cafe",
+			str1:     "CAFÉ",
+			str2:     "cafe",
+			options:  IgnoreCase | IgnoreDiacritics,
+			expected: true,
+		},
+		{
+			name:     "忽略变音符号+大小写 - résumé vs RESUME",
+			str1:     "résumé",
+			str2:     "RESUME",
+			options:  IgnoreCase | IgnoreDiacritics,
+			expected: true,
+		},
+
+		// === IgnoreWidth 测试 ===
+		{
+			name:     "忽略宽度 - 全角A vs 半角A",
+			str1:     "Ａ",
+			str2:     "A",
+			options:  IgnoreWidth,
+			expected: true, // 单独使用 IgnoreWidth 也会相等
+		},
+		{
+			name:     "忽略宽度+大小写 - Ａ vs a",
+			str1:     "Ａ",
+			str2:     "a",
+			options:  IgnoreCase | IgnoreWidth,
+			expected: true,
+		},
+		{
+			name:     "忽略宽度+大小写 - １２３ vs 123",
+			str1:     "１２３",
+			str2:     "123",
+			options:  IgnoreCase | IgnoreWidth,
+			expected: true,
+		},
+
+		// === 组合选项测试 ===
+		{
+			name:     "忽略大小写+变音符号 - CAFÉ vs cafe",
+			str1:     "CAFÉ",
+			str2:     "cafe",
+			options:  IgnoreCase | IgnoreDiacritics,
+			expected: true,
+		},
+		{
+			name:     "忽略大小写+宽度 - Ａ vs a",
+			str1:     "Ａ",
+			str2:     "a",
+			options:  IgnoreCase | IgnoreWidth,
+			expected: true,
+		},
+		{
+			name:     "忽略大小写+变音符号+宽度 - ＣＡＦÉ vs cafe",
+			str1:     "ＣＡＦÉ", // 全角 + 变音符号 + 大写
+			str2:     "cafe",
+			options:  IgnoreCase | IgnoreDiacritics | IgnoreWidth,
+			expected: true,
+		},
+
+		// === Loose 模式测试 ===
+		{
+			name:     "德语 ß - 大小写敏感",
+			str1:     "Straße",
+			str2:     "Strasse",
+			options:  0,
+			expected: false,
+		},
+		{
+			name:     "德语 ß - 宽松比较",
+			str1:     "Straße",
+			str2:     "Strasse",
+			options:  Loose,
+			expected: true,
+		},
+		{
+			name:     "德语 ß - 忽略大小写 + 宽松",
+			str1:     "Straße",
+			str2:     "STRASSE",
+			options:  IgnoreCase | Loose,
+			expected: true,
+		},
+		{
+			name:     "Loose 模式 - 综合测试",
+			str1:     "ＣＡＦＥ́", // 全角 + 变音符号
+			str2:     "cafe",
+			options:  Loose,
+			expected: true,
+		},
+
+		// === Unicode 组合字符测试 ===
+		{
+			name:     "Unicode 组合字符 - NFD vs NFC",
+			str1:     "café", // é = U+00E9
+			str2:     "café", // é = e + ́ (U+0065 + U+0301)
+			options:  0,
+			expected: true, // collate 自动规范化
+		},
+
+		// === 边界测试 ===
+		{
+			name:     "空字符串",
+			str1:     "",
+			str2:     "",
+			options:  IgnoreCase,
+			expected: true,
+		},
+		{
+			name:     "空字符串 vs 非空",
+			str1:     "",
+			str2:     "hello",
+			options:  IgnoreCase,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := UnicodeCompare(tt.str1, tt.str2, tt.options)
+			if result != tt.expected {
+				t.Errorf("UnicodeCompare(%q, %q, options=%v) = %v, want %v", tt.str1, tt.str2, tt.options, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestUnicodeCanonical 测试 Unicode 规范化键生成
+func TestUnicodeCanonical(t *testing.T) {
+	// 测试基本功能 - 相同字符串（大小写不同）
+	key1 := UnicodeCanonical("Hello", IgnoreCase)
+	key2 := UnicodeCanonical("HELLO", IgnoreCase)
+
+	if key1 != key2 {
+		t.Errorf("相同字符串（忽略大小写）应生成相同规范化键")
+	}
+
+	// 测试作为 map key
+	termDB := make(map[string]string)
+	termDB[UnicodeCanonical("Straße", IgnoreCase)] = "street (German)"
+	termDB[UnicodeCanonical("Cœur", IgnoreCase)] = "heart (French)"
+	termDB[UnicodeCanonical("Hello", IgnoreCase)] = "greeting (English)"
+
+	// 使用相同字符串的不同大小写查询
+	query1 := UnicodeCanonical("straße", IgnoreCase)
+	if val, found := termDB[query1]; !found || val != "street (German)" {
+		t.Errorf("查询失败: found: %v, value: %q", found, val)
+	}
+
+	query2 := UnicodeCanonical("cœur", IgnoreCase)
+	if val, found := termDB[query2]; !found || val != "heart (French)" {
+		t.Errorf("查询失败: found: %v, value: %q", found, val)
+	}
+
+	query3 := UnicodeCanonical("HELLO", IgnoreCase)
+	if val, found := termDB[query3]; !found || val != "greeting (English)" {
+		t.Errorf("查询失败: found: %v, value: %q", found, val)
+	}
+}
+
+// BenchmarkUnicodeEqualFold_ASCII 测试 ASCII 快速路径性能
+func BenchmarkUnicodeEqualFold_ASCII(b *testing.B) {
+	str1 := "Hello World This Is A Test String"
+	str2 := "HELLO WORLD THIS IS A TEST STRING"
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = UnicodeCompare(str1, str2, IgnoreCase)
+	}
+}
+
+// BenchmarkUnicodeEqualFold_Unicode 测试 Unicode 完整路径性能
+func BenchmarkUnicodeEqualFold_Unicode(b *testing.B) {
+	str1 := "Straße café Þórshöfn Ångström"
+	str2 := "STRAẞE CAFÉ ÞÓRSHÖFN ÅNGSTRÖM"
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = UnicodeCompare(str1, str2, IgnoreCase)
+	}
+}
+
+// BenchmarkUnicodeEqualFold_Mixed 测试混合 ASCII + Unicode 性能
+func BenchmarkUnicodeEqualFold_Mixed(b *testing.B) {
+	str1 := "Hello café world Straße test"
+	str2 := "HELLO CAFÉ WORLD STRAẞE TEST"
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = UnicodeCompare(str1, str2, IgnoreCase)
+	}
+}
+
+// BenchmarkStringsEqualFold 对比标准库性能
+func BenchmarkStringsEqualFold(b *testing.B) {
+	str1 := "Hello World This Is A Test String"
+	str2 := "HELLO WORLD THIS IS A TEST STRING"
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = strings.EqualFold(str1, str2)
+	}
+}
+
+// BenchmarkUnicodeCompare_IgnoreCase 对比 UnicodeCompare 性能
+func BenchmarkUnicodeCompare_IgnoreCase(b *testing.B) {
+	str1 := "Hello World This Is A Test String"
+	str2 := "HELLO WORLD THIS IS A TEST STRING"
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = UnicodeCompare(str1, str2, IgnoreCase)
+	}
+}
+
+// BenchmarkUnicodeCanonical 性能基准测试
+func BenchmarkUnicodeCanonical(b *testing.B) {
+	inputs := []string{
+		"Straße", "café", "Þórshöfn", "Cœur", "Ångström",
+		"Hello World", "中文测试", "Привет", "naïve", "résumé",
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, s := range inputs {
+			_ = UnicodeCanonical(s, IgnoreCase)
+		}
 	}
 }

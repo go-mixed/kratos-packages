@@ -2,6 +2,7 @@ package utils
 
 import (
 	"reflect"
+	"slices"
 	"sort"
 	"testing"
 )
@@ -78,7 +79,7 @@ func TestMaxMatchReplace(t *testing.T) {
 				"银行":   "D",
 				"人民银行": "E",
 			},
-			want: "BE",
+			want: "B民D", // 正向最大匹配: "中国人"→B + "民"(保留) + "银行"→D
 		},
 		{
 			name: "混合中英文",
@@ -251,7 +252,7 @@ func TestMaxMatchExtract(t *testing.T) {
 			name:  "中文分词-最大匹配",
 			text:  "中国人民银行",
 			terms: []string{"中国", "中国人", "人民", "银行", "人民银行"},
-			want:  []string{"中国人", "民银行"}, // 注意：可能是"中国人"+"民银行"或其他组合，取决于实现
+			want:  []string{"中国人", "银行"}, // 正向最大匹配: "中国人"(9字节) + 跳过"民" + "银行"(6字节)
 		},
 		{
 			name:  "中文分词-复杂情况",
@@ -571,5 +572,64 @@ func BenchmarkBiMaxMatchExtract(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		BiMaxMatchExtract(text, terms)
+	}
+}
+
+// TestMaxMatchExtractWithOptions 测试带 Unicode 选项的 MaxMatchExtract
+func TestMaxMatchExtractWithOptions(t *testing.T) {
+	tests := []struct {
+		name    string
+		text    string
+		terms   []string
+		options []UnicodeNormalizeOption
+		want    []string
+	}{
+		{
+			name:    "IgnoreCase - 大小写不敏感",
+			text:    "Hello World",
+			terms:   []string{"hello", "world"},
+			options: []UnicodeNormalizeOption{IgnoreCase},
+			want:    []string{"hello", "world"},
+		},
+		{
+			name:    "无选项 - 严格匹配",
+			text:    "Hello World",
+			terms:   []string{"hello", "world"},
+			options: nil,
+			want:    nil,
+		},
+		{
+			name:    "IgnoreCase + IgnoreDiacritics - 忽略变音符号",
+			text:    "café résumé",
+			terms:   []string{"cafe", "resume"},
+			options: []UnicodeNormalizeOption{IgnoreCase, IgnoreDiacritics},
+			want:    []string{"cafe", "resume"},
+		},
+		{
+			name:    "IgnoreCase + IgnoreWidth - 忽略全角半角",
+			text:    "ＨＥＬＬＯ ＷＯＲＬＤ",
+			terms:   []string{"hello", "world"},
+			options: []UnicodeNormalizeOption{IgnoreCase, IgnoreWidth},
+			want:    []string{"hello", "world"},
+		},
+		{
+			name:    "Loose - 宽松比较",
+			text:    "Straße ＣＡＦÉ",
+			terms:   []string{"strasse", "cafe"},
+			options: []UnicodeNormalizeOption{Loose},
+			want:    []string{"strasse", "cafe"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := MaxMatchExtract(tt.text, tt.terms, tt.options...)
+			// 排序以便比较
+			slices.Sort(result)
+			slices.Sort(tt.want)
+			if !reflect.DeepEqual(result, tt.want) {
+				t.Errorf("MaxMatchExtract() = %v, want %v", result, tt.want)
+			}
+		})
 	}
 }

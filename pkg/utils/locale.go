@@ -2,8 +2,14 @@ package utils
 
 import (
 	"strings"
+	"unicode"
 
+	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
+	"golang.org/x/text/width"
 )
 
 // normalizeRegionShorthand 将常见的地区简写转换为语言标签
@@ -200,4 +206,149 @@ func NormalizeRFC5646Language(locale string) (string, error) {
 
 	// 没有默认地区映射,返回原始标签
 	return tag.String(), nil
+}
+
+// UnicodeNormalizeOption 定义 Unicode 字符串规范化选项
+// 这些选项用于字符串的规范化处理，适用于比较、匹配、转换等场景
+type UnicodeNormalizeOption int32
+
+const (
+	// IgnoreCase 忽略大小写进行比较（使用 Unicode case folding 标准）
+	//
+	// Unicode 标准定义：case-insensitive 比较不仅包含基本大小写（A↔a），
+	// 还包含特殊字符的规范映射，这是 Unicode 标准推荐的正确实现方式。
+	//
+	// 特殊字符映射示例：
+	//   - 基本大小写: "Hello" == "HELLO"
+	//   - 德语 ß: "Straße" == "strasse" (ß 折叠为 ss)
+	//   - 希腊语 Σ: "ΣΊΓΜΑ" == "σίγμα"
+	//   - 土耳其语 İ: "İstanbul" == "i̇stanbul"
+	//
+	// 注意：Go 的 strings.EqualFold() 和 Java 的 equalsIgnoreCase() 仅实现了基本大小写转换（不完整实现），无法正确处理 ß→ss 等映射。
+	// Python 的 str.casefold() 和 .NET 的 String.Compare(ignoreCase) 使用了完整的 Unicode case folding，与本实现一致。
+	IgnoreCase UnicodeNormalizeOption = 1 << iota // 1
+
+	// IgnoreDiacritics 忽略变音符号（音调符号）
+	// 示例: "café" == "cafe", "naïve" == "naive"
+	IgnoreDiacritics // 2
+
+	// IgnoreWidth 忽略全角/半角字符差异
+	// 示例: "Ａ" == "A", "１２３" == "123"
+	IgnoreWidth // 4
+
+	// Loose 宽松比较，等价于 IgnoreCase | IgnoreDiacritics | IgnoreWidth (= 7)
+	// 同时应用所有规范化：case folding + 移除变音符号 + 全角转半角
+	// 示例: "ＣＡＦÉ" == "cafe", "Straße" == "strasse"
+	Loose = IgnoreCase | IgnoreDiacritics | IgnoreWidth // 7
+)
+
+// mergeUnicodeNormalizeOptions 合并多个 UnicodeNormalizeOption 为单个选项
+func mergeUnicodeNormalizeOptions(options ...UnicodeNormalizeOption) UnicodeNormalizeOption {
+	var combined UnicodeNormalizeOption
+	for _, opt := range options {
+		combined |= opt
+	}
+	return combined
+}
+
+// isCaseIgnore 检查是否忽略大小写
+func (opt UnicodeNormalizeOption) isCaseIgnore() bool {
+	return opt&IgnoreCase != 0
+}
+
+// isDiacriticsIgnore 检查是否忽略变音符号
+func (opt UnicodeNormalizeOption) isDiacriticsIgnore() bool {
+	return opt&IgnoreDiacritics != 0
+}
+
+// isWidthIgnore 检查是否忽略全角半角
+func (opt UnicodeNormalizeOption) isWidthIgnore() bool {
+	return opt&IgnoreWidth != 0
+}
+
+// UnicodeCompare 判断两个 Unicode 字符串是否相等
+// 支持忽略大小写、变音符号、全角半角等选项
+//
+// 参数：
+//   - str1, str2: 要比较的两个字符串
+//   - options: 规范化选项，可以是多个选项的位运算组合
+//   - 无选项: 严格比较（str1 == str2）
+//   - IgnoreCase: 忽略大小写
+//   - IgnoreDiacritics: 忽略变音符号
+//   - IgnoreWidth: 忽略全角半角
+//   - Loose: 宽松比较（以上所有选项的组合）
+//
+// 示例:
+//
+//	UnicodeCompare("Hello", "hello", IgnoreCase)                    // true
+//	UnicodeCompare("café", "cafe", IgnoreCase, IgnoreDiacritics)    // true
+//	UnicodeCompare("Straße", "strasse", IgnoreCase)                 // true (ß -> ss)
+//	UnicodeCompare("ＨＥＬＬＯ", "hello", IgnoreCase, IgnoreWidth)   // true
+//
+// 实现说明:
+//   - 使用 UnicodeCanonical 将两个字符串规范化后比较
+//   - 保证与 UnicodeCanonical 的行为完全一致
+func UnicodeCompare(str1, str2 string, options ...UnicodeNormalizeOption) bool {
+	// 合并所有选项
+	opt := mergeUnicodeNormalizeOptions(options...)
+
+	// 无选项时严格比较
+	if opt == 0 {
+		return str1 == str2
+	}
+
+	// 快速路径: 完全相同
+	if str1 == str2 {
+		return true
+	}
+
+	// 规范化后比较（复用 UnicodeCanonical 逻辑）
+	return UnicodeCanonical(str1, options...) == UnicodeCanonical(str2, options...)
+}
+
+// UnicodeCanonical 返回字符串的 Unicode 规范形式
+//
+// 参数：
+//   - input: 要规范化的字符串
+//   - options: 规范化选项，可以是多个选项的位运算组合
+//   - 无选项: 返回原字符串（严格匹配）
+//   - IgnoreCase: 转换为 case folding 形式（如 "Straße" -> "strasse"）
+//   - IgnoreDiacritics: 移除变音符号（如 "café" -> "cafe"）
+//   - IgnoreWidth: 全角转半角（如 "Ａ" -> "A"）
+//   - Loose: 以上所有选项的组合
+//
+// 注意:
+//   - 返回的是可读的规范化字符串，不是二进制数据
+//   - 相同的输入和选项总是返回相同的结果
+func UnicodeCanonical(input string, options ...UnicodeNormalizeOption) string {
+	// 合并所有选项
+	opt := mergeUnicodeNormalizeOptions(options...)
+
+	// 快速路径: 无选项，返回原字符串
+	if opt == 0 {
+		return input
+	}
+
+	result := input
+
+	// IgnoreCase: 使用 case folding（而非 ToLower）
+	// Case folding 是 Unicode 标准中用于不区分大小写比较的正确方法
+	// 例如: "Straße" -> "strasse", "İstanbul" -> "i̇stanbul"
+	if opt.isCaseIgnore() {
+		result = cases.Fold().String(result)
+	}
+
+	// IgnoreDiacritics: 移除变音符号
+	// 使用 transform.Chain 实现 NFD → 移除 Mn → NFC 的流式处理
+	if opt.isDiacriticsIgnore() {
+		t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+		result, _, _ = transform.String(t, result)
+	}
+
+	// IgnoreWidth: 转换全角到半角
+	if opt.isWidthIgnore() {
+		result = width.Narrow.String(result)
+	}
+
+	return result
 }
