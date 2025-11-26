@@ -2,9 +2,10 @@ package redis
 
 import (
 	"context"
+	"time"
+
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/lo"
-	"time"
 )
 
 // Keys 返回所有符合给定 pattern 的 key，pattern支持通配符
@@ -12,7 +13,8 @@ import (
 // https://redis.io/commands/keys
 func (c *Redis) Keys(ctx context.Context, pattern string) ([]string, error) {
 	pattern = c.formatKey(pattern)
-	return c.GetRedisCmd(ctx).Keys(ctx, pattern).Result()
+	keys, err := c.GetRedisCmd(ctx).Keys(ctx, pattern).Result()
+	return c.removePrefixFromKeys(keys), err
 }
 
 // Forget 删除缓存，不返回删除的数量

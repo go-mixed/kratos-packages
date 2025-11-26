@@ -2,6 +2,8 @@ package redis
 
 import (
 	"context"
+	"strings"
+
 	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/lo"
@@ -42,10 +44,28 @@ func (c *Redis) formatKey(key string) string {
 	return c.options.KeyPrefix + key
 }
 
-// formatKeys 格式化keys，加上前缀
+// removePrefix 从key中移除前缀
+func (c *Redis) removePrefix(key string) string {
+	// 如果ReturnRawKeys为true，则不移除前缀
+	if c.options.ReturnOriginalKeys {
+		return key
+	}
+	return strings.TrimPrefix(key, c.options.KeyPrefix)
+}
+
+// formatKeys 给keys加上前缀
 func (c *Redis) formatKeys(keys []string) []string {
 	return lo.Map(keys, func(key string, _ int) string {
 		return c.formatKey(key)
+	})
+}
+
+func (c *Redis) removePrefixFromKeys(keys []string) []string {
+	if c.options.ReturnOriginalKeys {
+		return keys
+	}
+	return lo.Map(keys, func(key string, _ int) string {
+		return strings.TrimPrefix(key, c.options.KeyPrefix)
 	})
 }
 

@@ -16,9 +16,10 @@ import (
 // keys: 扫描到的key。
 // nextCursor: 下一次调用时传入的cursor。
 // err: 错误。
-func (c *Redis) Scan(ctx context.Context, pattern string, cursor uint64, size int64) (keys []string, nextCursor uint64, _ error) {
+func (c *Redis) Scan(ctx context.Context, pattern string, cursor uint64, size int64) (keys []string, nextCursor uint64, err error) {
 	pattern = c.formatKey(pattern)
-	return c.GetRedisCmd(ctx).Scan(ctx, cursor, pattern, size).Result()
+	keys, nextCursor, err = c.GetRedisCmd(ctx).Scan(ctx, cursor, pattern, size).Result()
+	return c.removePrefixFromKeys(keys), nextCursor, err
 }
 
 // doScanFunc 扫描缓存，依次回调匹配的key。
@@ -68,9 +69,10 @@ func (c *Redis) AllScanFunc(ctx context.Context, pattern string, size int64, cal
 // pattern: 匹配的key。
 // count: 每次扫描的数量，0表示不限制。
 // keyType: key的类型，可选值：string、list、set、zset、hash、stream。
-func (c *Redis) ScanType(ctx context.Context, cursor uint64, pattern string, count int64, keyType string) (keys []string, nextCursor uint64, _ error) {
+func (c *Redis) ScanType(ctx context.Context, cursor uint64, pattern string, count int64, keyType string) (keys []string, nextCursor uint64, err error) {
 	pattern = c.formatKey(pattern)
-	return c.GetRedisCmd(ctx).ScanType(ctx, cursor, pattern, count, keyType).Result()
+	keys, nextCursor, err = c.GetRedisCmd(ctx).ScanType(ctx, cursor, pattern, count, keyType).Result()
+	return c.removePrefixFromKeys(keys), nextCursor, err
 }
 
 // AllScanTypeFunc 扫描缓存，依次回调匹配的key。 参数参考 ScanType
