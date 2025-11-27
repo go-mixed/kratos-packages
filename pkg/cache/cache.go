@@ -1,9 +1,10 @@
 package cache
 
 import (
+	"time"
+
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/redis"
-	"time"
 )
 
 type predis = redis.Redis
@@ -59,6 +60,7 @@ func (c *Cache) WithOptions(options redis.Options) *Cache {
 }
 
 // WithKeyPrefix 设置key前缀，并返回新的Cache
+// 给【所有】类型的key添加公共前缀，注意：htable, zset 中的 field/member 和这个无关
 func (c *Cache) WithKeyPrefix(keyPrefix string) *Cache {
 	options := c.options
 	options.KeyPrefix = keyPrefix
@@ -66,6 +68,9 @@ func (c *Cache) WithKeyPrefix(keyPrefix string) *Cache {
 }
 
 // WithExpiration 设置过期时间，并返回新的Cache，0表示不过期
+// 注意：设置本option之后仅有如下函数会设置Expiration：
+// 1. Set/SetNX/SetXX/SetEX/SetPX
+// 2. HSet/HSetNX/HSetXX/HSetEX/HSetPX
 func (c *Cache) WithExpiration(expiration time.Duration) *Cache {
 	options := c.options
 	options.Expiration = expiration
@@ -76,6 +81,15 @@ func (c *Cache) WithExpiration(expiration time.Duration) *Cache {
 func (c *Cache) WithSaveEmptyOnRemember(saveIfZero bool) *Cache {
 	options := c.options
 	options.SaveEmptyOnRemember = saveIfZero
+	return c.WithOptions(options)
+}
+
+// WithReturnOriginalKeys 通过 Scan/Keys/ScanType 命令获取到的key是否包含KeyPrefix，即redis中的原始key
+// 为true时，返回的key包含KeyPrefix
+// 为false时，返回的key不包含KeyPrefix
+func (c *Cache) WithReturnOriginalKeys(returnOriginalKeys bool) *Cache {
+	options := c.options
+	options.ReturnOriginalKeys = returnOriginalKeys
 	return c.WithOptions(options)
 }
 

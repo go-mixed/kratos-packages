@@ -2,10 +2,11 @@ package redis
 
 import (
 	"context"
+	"time"
+
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/lo"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
-	"time"
 )
 
 // Remember 如果有缓存，则反射并设置actual的值；不然就执行callback(act)，并在callback中设置actual的值；如果callback没有报错则将actual设置缓存。
