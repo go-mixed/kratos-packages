@@ -6,9 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"runtime"
 	"runtime/debug"
-	"strconv"
 	"strings"
 
 	"github.com/go-kratos/kratos/v2/transport"
@@ -85,10 +83,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// recover panic
 	defer func() {
-		stackTrace := debug.Stack()
-		stackTraceAsRawStringLiteral := strconv.Quote(string(stackTrace))
 		if res := recover(); res != nil {
-			logger.Errorf("[WS]ServeHTTP panic, request = %+v, recover = %+v,  stack = %s", r, res, stackTraceAsRawStringLiteral)
+			stackTrace := debug.Stack()
+			logger.Errorf("[WS]ServeHTTP panic, request = %+v, recover = %+v, stack = %s", r, res, string(stackTrace))
 		}
 	}()
 
@@ -183,10 +180,11 @@ func (s *Server) Start(ctx context.Context) error {
 	logger := s.logger.WithContext(ctx)
 	defer func() {
 		if err := recover(); err != nil {
-			buf := make([]byte, 64<<10)
-			n := runtime.Stack(buf, false)
-			buf = buf[:n]
-			logger.Errorf("[WS]websocket panic error = %v, stack = %s", err, buf)
+			stackTrace := debug.Stack()
+			//buf := make([]byte, 64<<10)
+			//n := runtime.Stack(buf, false)
+			//buf = buf[:n]
+			logger.Errorf("[WS]websocket panic error = %v, stack = %s", err, string(stackTrace))
 		}
 	}()
 

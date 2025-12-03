@@ -94,9 +94,41 @@ func GetClassName(v any) string {
 	return typeOf.PkgPath() + "." + typeOf.Name()
 }
 
-// Ptr 将一个值转为指针
-func Ptr[T any](v T) *T {
-	return &v
+// IsFunc 判断是否是函数类型
+func IsFunc(fn any) bool {
+	return reflect.TypeOf(fn).Kind() == reflect.Func
+}
+
+// IsFuncArgs 判断函数是否符合参数类型
+//   - 不允许在args中传入 裸指针nil，除非是 (*someType)(nil)
+//   - 普通函数：func example(a int, b string, c *someType) 那检查方式为 IsFuncArgs(example, int(0), "", &someType{})
+//   - 对于变参，比如func example(a int, b string...) 那检查方式为 IsFuncArgs(example, int(0), []string{})
+func IsFuncArgs(fn any, args ...any) bool {
+	if !IsFunc(fn) {
+		return false
+	}
+
+	fnType := reflect.TypeOf(fn)
+
+	// 统一处理参数数量检查
+	// 非变参函数：参数数量必须完全匹配
+	// 变参函数：参数数量必须完全匹配（包括变参部分作为一个切片）
+	if len(args) != fnType.NumIn() {
+		return false
+	}
+
+	// 检查每个参数类型
+	for i := 0; i < len(args); i++ {
+		expectedType := fnType.In(i)
+
+		arg := args[i]
+		// 严格模式，必须类型要完全相等（可以使用 !reflect.TypeOf(arg).AssignableTo(expectedType) 表示 可以为延伸类型）
+		if reflect.TypeOf(arg) != expectedType {
+			return false
+		}
+	}
+
+	return true
 }
 
 // Ptrs 将多个值转为指针

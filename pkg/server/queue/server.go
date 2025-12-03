@@ -6,30 +6,40 @@ import (
 
 	"github.com/go-kratos/kratos/v2/transport"
 	"github.com/redis/go-redis/v9"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/app"
+	"gopkg.in/go-mixed/kratos-packages.v2/pkg/log"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
 )
-import "github.com/hdt3213/delayqueue"
 
 type QueueServer struct {
-	queueTable  utils.ConcurrentMap[string, *delayqueue.DelayQueue]
+	queueTable  utils.ConcurrentMap[string, *DelayQueue]
 	redisClient *redis.Client
 
 	kratosStarted atomic.Bool
+	logger        *log.Helper
+	app           *app.App
 }
 
 var _ transport.Server = (*QueueServer)(nil)
 
-func NewQueueServer(rdb *redis.Client) *QueueServer {
+func NewQueueServer(
+	app *app.App,
+	rdb *redis.Client,
+	logger log.Logger,
+) *QueueServer {
 	return &QueueServer{
 		redisClient:   rdb,
-		queueTable:    utils.ConcurrentMap[string, *delayqueue.DelayQueue]{},
+		queueTable:    utils.ConcurrentMap[string, *DelayQueue]{},
 		kratosStarted: atomic.Bool{},
+		logger:        log.NewModuleHelper(logger, "queue"),
+		app:           app,
 	}
 }
 
 // NewQueue 新建队列，如果kratos已经启动，则立即启动消费该队列；否则，会在kratos启动时统一启动消费
-func (q *QueueServer) NewQueue(name string, callback delayqueue.CallbackFunc, opts ...opt) *delayqueue.DelayQueue {
-	queue := delayqueue.NewQueue(name, q.redisClient, callback)
+func (q *QueueServer) NewQueue(name string, opts ...opt) *DelayQueue {
+	queue := NewDelayQueue(name, q.redisClient, q.logger)
+	queue.app = q.app
 
 	for _, _opt := range opts {
 		_opt(queue)
@@ -56,7 +66,7 @@ func (q *QueueServer) RemoveQueue(name string) {
 }
 
 // GetQueue  获取队列
-func (q *QueueServer) GetQueue(name string) *delayqueue.DelayQueue {
+func (q *QueueServer) GetQueue(name string) *DelayQueue {
 	queue, _ := q.queueTable.Load(name)
 	return queue
 }
