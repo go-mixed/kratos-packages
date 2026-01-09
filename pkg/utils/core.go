@@ -162,6 +162,8 @@ func PtrElement(v any) reflect.Value {
 //   - 如果非指针类型，返回该类型的零值（利用泛型的特性）；
 //   - 如果是指针类型，返回new(T)；
 //   - 如果是map、slice、chan类型，返回make后的map、slice、chan
+//
+// golang v1.26中自带new(Type)
 func New[T any]() T {
 	var v T
 	typeOf := reflect.TypeOf(v)
@@ -180,4 +182,18 @@ func New[T any]() T {
 
 	// 其它类型使用泛型的特性返回零值即可
 	return v
+}
+
+// IsBasicType 判断是否是基础类型
+func IsBasicType(typOf reflect.Type) bool {
+	switch typOf.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64,
+		reflect.Complex64, reflect.Complex128,
+		reflect.String, reflect.Bool:
+		return true
+	default:
+		return false
+	}
 }

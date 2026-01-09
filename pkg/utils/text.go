@@ -3,6 +3,7 @@ package utils
 import (
 	"math/rand"
 	"slices"
+	"unicode/utf8"
 
 	"github.com/samber/lo"
 )
@@ -328,4 +329,17 @@ func BiMaxMatchExtract(text string, terms []string, options ...UnicodeNormalizeO
 	result := lo.Uniq(append(lo.Keys(forwardMatched), lo.Keys(backwardMatched)...))
 
 	return result
+}
+
+// StringToRunePositions 将string转为[]rune, 以及它和原string的offset关系表
+func StringToRunePositions(s string) ([]rune, Positions) {
+	runes := []rune(s)
+	var ps Positions = make(Positions, 0, len(runes))
+	// 注意：range string后，遍历参数是：(string offset, rune)，比如：“你好abc"，index是：0, 3, 6, 7, 8
+	// 如果是range runes，则index是连续的： 0,1,2,..., n
+	for strIndex, r := range s {
+		l := utf8.RuneLen(r)
+		ps = append(ps, Position{Offset: strIndex, Length: l})
+	}
+	return runes, ps
 }

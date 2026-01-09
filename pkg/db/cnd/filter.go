@@ -2,33 +2,62 @@ package cnd
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
+
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/db"
 	"gopkg.in/go-mixed/kratos-packages.v2/pkg/utils"
-	"reflect"
-	"strings"
 )
 
 type Operators map[string]Operator
 
 type Operator func(query *QueryBuilder, col string, val any) error
 
-func newStdOperator(operator string) Operator {
+// CompareOperator JSON 比较操作符类型
+type CompareOperator string
+
+const (
+	OpEq         CompareOperator = "="      // 等于
+	OpNe         CompareOperator = "!="     // 不等于
+	OpGt         CompareOperator = ">"      // 大于
+	OpGte        CompareOperator = ">="     // 大于等于
+	OpLt         CompareOperator = "<"      // 小于
+	OpLte        CompareOperator = "<="     // 小于等于
+	OpIn         CompareOperator = "in"     // in ()
+	OpNotIn      CompareOperator = "not in" // not in ()
+	OpLike       CompareOperator = "like"
+	OpNotLike    CompareOperator = "not like"
+	opBetween    CompareOperator = "BETWEEN"
+	opNotBetween CompareOperator = "NOT BETWEEN"
+)
+
+// StdOperator 创建标准的比较操作符（用于普通字段）
+// 支持使用 CompareOperator 常量，实现类型安全
+//
+// 使用示例:
+//
+//	Operators{
+//	    "name":   cnd.StdOperator(cnd.OpEq),   // WHERE name = ?
+//	    "age":    cnd.StdOperator(cnd.OpGte),  // WHERE age >= ?
+//	    "status": cnd.StdOperator(cnd.OpNe),   // WHERE status != ?
+//	}
+func StdOperator(operator CompareOperator) Operator {
 	return func(query *QueryBuilder, col string, val any) error {
-		query.Where(fmt.Sprintf("%s %s ?", col, operator), val)
+		query.Where(fmt.Sprintf("%s %s ?", col, string(operator)), val)
 		return nil
 	}
 }
 
-func newLikeOperator(operator string) Operator {
+func newLikeOperator(operator CompareOperator) Operator {
 	return func(query *QueryBuilder, col string, val any) error {
 		query.Where(fmt.Sprintf("%s %s ?", col, operator), fmt.Sprintf("%%%s%%", val))
 		return nil
 	}
 }
 
-func newBetweenOperator(operator string) Operator {
+func newBetweenOperator(operator CompareOperator) Operator {
 	return func(query *QueryBuilder, col string, val any) error {
 		refVal := reflect.ValueOf(val)
 		if refVal.Kind() != reflect.Slice || refVal.Len() < 2 {
@@ -41,52 +70,52 @@ func newBetweenOperator(operator string) Operator {
 
 // OperatorEq WHERE column = value
 func OperatorEq(query *QueryBuilder, col string, val any) error {
-	return newStdOperator("=")(query, col, val)
+	return StdOperator(OpEq)(query, col, val)
 }
 
 // OperatorNe WHERE column <> value
 func OperatorNe(query *QueryBuilder, col string, val any) error {
-	return newStdOperator("<>")(query, col, val)
+	return StdOperator(OpNe)(query, col, val)
 }
 
 // OperatorGt WHERE column > value
 func OperatorGt(query *QueryBuilder, col string, val any) error {
-	return newStdOperator(">")(query, col, val)
+	return StdOperator(OpGt)(query, col, val)
 }
 
 // OperatorGte WHERE column >= value
 func OperatorGte(query *QueryBuilder, col string, val any) error {
-	return newStdOperator(">=")(query, col, val)
+	return StdOperator(OpGte)(query, col, val)
 }
 
 // OperatorLt WHERE column < value
 func OperatorLt(query *QueryBuilder, col string, val any) error {
-	return newStdOperator("<")(query, col, val)
+	return StdOperator(OpLt)(query, col, val)
 }
 
 // OperatorLte WHERE column <= value
 func OperatorLte(query *QueryBuilder, col string, val any) error {
-	return newStdOperator("<=")(query, col, val)
+	return StdOperator(OpLte)(query, col, val)
 }
 
 // OperatorIn WHERE column IN (value1, value2, ...)
 func OperatorIn(query *QueryBuilder, col string, val any) error {
-	return newStdOperator("in")(query, col, val)
+	return StdOperator(OpIn)(query, col, val)
 }
 
 // OperatorNotIn WHERE column NOT IN (value1, value2, ...)
 func OperatorNotIn(query *QueryBuilder, col string, val any) error {
-	return newStdOperator("not in")(query, col, val)
+	return StdOperator(OpNotIn)(query, col, val)
 }
 
 // OperatorLike WHERE column LIKE value
 func OperatorLike(query *QueryBuilder, col string, val any) error {
-	return newLikeOperator("like")(query, col, val)
+	return newLikeOperator(OpLike)(query, col, val)
 }
 
 // OperatorNotLike WHERE column NOT LIKE value
 func OperatorNotLike(query *QueryBuilder, col string, val any) error {
-	return newLikeOperator("not like")(query, col, val)
+	return newLikeOperator(OpNotLike)(query, col, val)
 }
 
 // OperatorAnyLike WHERE (column1 LIKE value OR column2 LIKE value OR ...)
@@ -133,12 +162,12 @@ func OperatorAnyEq(columns ...string) Operator {
 
 // OperatorBetween WHERE column BETWEEN value0 AND value1
 func OperatorBetween(query *QueryBuilder, col string, val any) error {
-	return newBetweenOperator("between")(query, col, val)
+	return newBetweenOperator(opBetween)(query, col, val)
 }
 
 // OperatorNotBetween WHERE column NOT BETWEEN value0 AND value1
 func OperatorNotBetween(query *QueryBuilder, col string, val any) error {
-	return newBetweenOperator("not between")(query, col, val)
+	return newBetweenOperator(opNotBetween)(query, col, val)
 }
 
 // OperatorBetweenDate WHERE column >= value0 AND column <= value1
