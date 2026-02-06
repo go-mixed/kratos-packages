@@ -30,8 +30,8 @@ type DelayQueue struct {
 
 // CallbackFunc 是延迟队列的回调函数类型
 // 它接收一个上下文和一个参数，返回一个错误
-// 如果返回 nil，则表示执行成功；否则表示执行失败，会打印错误日志，并且重新放入队列，等待 WithNackRedeliveryDelay 之后重试执行，直到超过 WithDefaultRetryCount 次
-type CallbackFunc[Arg any] func(ctx context.Context, arg Arg) error
+// ack返回 true 表示执行成功；false 表示执行失败，重新放入队列，等待 WithNackRedeliveryDelay 之后重试执行，直到超过 WithDefaultRetryCount 次
+type CallbackFunc[Arg any] func(ctx context.Context, arg Arg) (ack bool)
 
 type taskEnvelope struct {
 	TypeName string
@@ -82,8 +82,8 @@ func (q *DelayQueue) callback(payload string) (ack bool) {
 
 	// 调用回调函数
 	results := callback.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(h.Arg)})
-	if err, ok := results[0].Interface().(error); ok && err != nil {
-		q.logger.WithContext(ctx).Errorf("[Queue]callback %s failed: %v", h.TypeName, err)
+	// 明确返回false，则表示需要重试，其它情况都表示执行成功
+	if res, ok := results[0].Interface().(bool); ok && !res {
 		return false // 回调函数执行失败，返回 false 表示需要重试
 	}
 
@@ -141,11 +141,29 @@ func (q *DelayQueue) clone() *DelayQueue {
 }
 
 // RegisterHandler 注册一个回调函数，用于处理指定类型的消息。
-// 注意：一个 Arg 类型只能注册一个回调函数。
+// 注意：一个 Arg 类型只能注册一个回调函数。故意这么设计，是为了避免用户误认为1个arg可以支持多个回调。
+// 比如arg是struct时，即使struct中的参数一样，也需要使用不同的struct名。
+// 替换需要使用: ReplaceHandler
 // 请在 delayqueue.StartConsume 之前注册，不然会有历史消息因为没有handler导致丢失
 func RegisterHandler[Arg any](queue *DelayQueue, callback CallbackFunc[Arg]) *DelayQueue {
 	var arg Arg
-	queue.handlers[utils.GetClassName(arg)] = reflect.ValueOf(callback)
+
+	className := utils.GetClassName(arg)
+	if _, ok := queue.handlers[className]; ok {
+		panic(fmt.Sprintf("Callback Argument \"%s\" is registered, use ReplaceHandler to replace it to new handler"))
+	}
+	queue.handlers[className] = reflect.ValueOf(callback)
+	// 将类型注册到 gob 中，以便编码和解码
+	gob.Register(arg)
+	return queue
+}
+
+// ReplaceHandler 替换arg已经注册过的回调函数
+func ReplaceHandler[Arg any](queue *DelayQueue, callback CallbackFunc[Arg]) *DelayQueue {
+	var arg Arg
+
+	className := utils.GetClassName(arg)
+	queue.handlers[className] = reflect.ValueOf(callback)
 	// 将类型注册到 gob 中，以便编码和解码
 	gob.Register(arg)
 	return queue
