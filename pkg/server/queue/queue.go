@@ -105,12 +105,12 @@ func (q *DelayQueue) sendMessageAt(arg any, at time.Time, once bool) error {
 	return q.client.SendScheduleMsg(buf.String(), at)
 }
 
-// SendRaw 延迟发送一个字符串消息，无法使用q.callback监听，需要实现自定义监听函数
+// SendRaw 延迟发送一个字符串消息，无法使用 q.callback 监听，需要实现自定义监听函数并使用 WithCallback 导入
 func (q *DelayQueue) SendRaw(msg string, delay time.Duration, opts ...any) error {
 	return q.client.SendScheduleMsg(msg, time.Now().Add(delay), opts...)
 }
 
-// SendRawAt 延迟发送一个字符串消息，at为指定时间。无法使用q.callback监听，需要实现自定义监听函数
+// SendRawAt 延迟发送一个字符串消息，at为指定时间。无法使用 q.callback 监听，需要实现自定义监听函数并使用 WithCallback 导入
 func (q *DelayQueue) SendRawAt(msg string, at time.Time, opts ...any) error {
 	return q.client.SendScheduleMsg(msg, at, opts...)
 }
