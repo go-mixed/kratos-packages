@@ -19,9 +19,9 @@ import (
 )
 
 type DelayQueue struct {
-	*delayqueue.DelayQueue
-	name string
-	rdb  *redis.Client
+	client *delayqueue.DelayQueue
+	name   string
+	rdb    *redis.Client
 
 	handlers map[string]reflect.Value
 	logger   *log.Helper
@@ -42,7 +42,7 @@ type taskEnvelope struct {
 // NewDelayQueue 创建一个新的延迟队列实例
 func NewDelayQueue(name string, rdb *redis.Client, logger *log.Helper) *DelayQueue {
 	queue := &DelayQueue{name: name, rdb: rdb, handlers: make(map[string]reflect.Value), logger: logger}
-	queue.DelayQueue = delayqueue.NewQueue(name, rdb).WithLogger(logger).WithCallback(queue.callback)
+	queue.client = delayqueue.NewQueue(name, rdb).WithLogger(logger).WithCallback(queue.callback)
 	return queue
 }
 
@@ -102,41 +102,53 @@ func (q *DelayQueue) sendMessageAt(arg any, at time.Time, once bool) error {
 	if err := gob.NewEncoder(buf).Encode(h); err != nil {
 		return err
 	}
-	return q.DelayQueue.SendScheduleMsg(buf.String(), at)
+	return q.client.SendScheduleMsg(buf.String(), at)
 }
 
-// SendDelayedMessage 发送一个延迟消息，延迟时间为 delay
-func (q *DelayQueue) SendDelayedMessage(arg any, delay time.Duration) error {
+// SendRaw 延迟发送一个字符串消息，无法使用q.callback监听，需要实现自定义监听函数
+func (q *DelayQueue) SendRaw(msg string, delay time.Duration) error {
+	return q.client.SendScheduleMsg(msg, time.Now().Add(delay))
+}
+
+// SendRawAt 延迟发送一个字符串消息，at为指定时间。无法使用q.callback监听，需要实现自定义监听函数
+func (q *DelayQueue) SendRawAt(msg string, at time.Time) error {
+	return q.client.SendScheduleMsg(msg, at)
+}
+
+// SendStruct 发送一个延迟消息，延迟时间为 delay, arg 需要是已经注册的 struct
+func (q *DelayQueue) SendStruct(arg any, delay time.Duration) error {
 	return q.sendMessageAt(arg, time.Now().Add(delay), false)
 }
 
-// SenMessageAt 发送一个指定时间的消息
-func (q *DelayQueue) SenMessageAt(arg any, at time.Time) error {
+// SendStructAt 发送一个指定时间的消息, arg 需要是已经注册的 struct
+func (q *DelayQueue) SendStructAt(arg any, at time.Time) error {
 	return q.sendMessageAt(arg, at, false)
 }
 
-// SendOnceDelayedMessage 发送一个延迟消息，延迟时间为 delay。相同的arg参数，不论结果成功失败，只能执行一次（24小时内）。
+// SendOnceStruct 发送一个延迟消息，延迟时间为 delay。 arg 需要是已经注册的 struct
+// 相同的arg参数的值，不论结果成功失败，只能执行一次（24小时内）。
 // 使用的是redis的SetNX作为执行一次的判断依据。为了避免redis中残留大量无效key，该key在第一次任务执行之后的24小时后失效（注意：不是添加任务的24小时后）
 // 所以任务执行完24小时后，如果还有相同的arg参数的任务，会成功执行
-func (q *DelayQueue) SendOnceDelayedMessage(arg any, delay time.Duration) error {
+func (q *DelayQueue) SendOnceStruct(arg any, delay time.Duration) error {
 	return q.sendMessageAt(arg, time.Now().Add(delay), true)
 }
 
-// SendOnceMessageAt 发送一个指定时间的消息，相同的arg参数，不论结果成功失败，只能执行一次（24小时内）。
+// SendOnceStructAt 发送一个指定时间的消息, arg 需要是已经注册的 struct
+// 相同的arg参数的值，不论结果成功失败，只能执行一次（24小时内）。
 // 使用的是redis的SetNX作为执行一次的判断依据。为了避免redis中残留大量无效key，该key在第一次任务执行之后的24小时后失效（注意：不是添加任务的24小时后）
 // 所以任务执行完24小时后，如果还有相同的arg参数的任务，会成功执行
-func (q *DelayQueue) SendOnceMessageAt(arg any, at time.Time) error {
+func (q *DelayQueue) SendOnceStructAt(arg any, at time.Time) error {
 	return q.sendMessageAt(arg, at, true)
 }
 
 // clone 输出一个新的 DelayQueue 实例
 func (q *DelayQueue) clone() *DelayQueue {
 	return &DelayQueue{
-		DelayQueue: q.DelayQueue,
-		name:       q.name,
-		rdb:        q.rdb,
-		handlers:   q.handlers,
-		logger:     q.logger,
+		client:   q.client,
+		name:     q.name,
+		rdb:      q.rdb,
+		handlers: q.handlers,
+		logger:   q.logger,
 	}
 }
 

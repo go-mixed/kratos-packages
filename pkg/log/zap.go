@@ -1,15 +1,16 @@
 package log
 
 import (
+	"io"
+	"os"
+	"path/filepath"
+	"time"
+
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"io"
-	"os"
-	"path/filepath"
-	"time"
 )
 
 func buildZapEncoder(encoderType encoderType, timeFormat string, color bool) zapcore.Encoder {
@@ -137,37 +138,53 @@ func buildFilterFunc(filters []FilterOption) log.FilterOption {
 //	simpleLogConf.dir 为日志目录
 func buildSimpleZapCore(conf simpleLogConf) zapcore.Core {
 	atomic := zap.NewAtomicLevelAt(conf.level)
-	encoder := buildZapEncoder(lo.If(conf.production, encoderTypeJSON).Else(encoderTypeConsole), "2006-01-02 15:04:05", conf.color)
+	encoder := buildZapEncoder(lo.Ternary(conf.production, encoderTypeJSON, encoderTypeConsole), "2006-01-02 15:04:05", conf.color)
 
-	syncers := []zapcore.WriteSyncer{
-		zapcore.AddSync(os.Stdout),
-	}
+	// 定义级别过滤器
+	// Info/Debug/Warn 级别 (< Error)
+	infoWarnLevel := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+		return lvl < zapcore.ErrorLevel && lvl >= atomic.Level()
+	})
 
-	// 如果设置了日志目录，则添加文件的syncer
+	// Error/Fatal 级别 (>= Error)
+	errorLevel := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+		return lvl >= zapcore.ErrorLevel && lvl >= atomic.Level()
+	})
+
+	// 创建 stdout 和 stderr 的 syncers
+	stdoutSyncers := []zapcore.WriteSyncer{zapcore.AddSync(os.Stdout)}
+	stderrSyncers := []zapcore.WriteSyncer{zapcore.AddSync(os.Stderr)}
+
+	// 如果设置了日志目录，添加文件 syncer
 	if conf.dir != "" {
-		syncers = append(syncers, buildFieSyncer(fileConfig{filepath.Join(conf.dir, "logger.log"), conf.rotateConfig.Rotate, conf.rotateConfig.MaxSize, conf.rotateConfig.MaxAge, conf.rotateConfig.MaxBackups, conf.rotateConfig.LocalTime, conf.rotateConfig.Compress}))
+		fileSyncer := buildFieSyncer(fileConfig{filepath.Join(conf.dir, "logger.log"), conf.rotateConfig.Rotate, conf.rotateConfig.MaxSize, conf.rotateConfig.MaxAge, conf.rotateConfig.MaxBackups, conf.rotateConfig.LocalTime, conf.rotateConfig.Compress})
+		stdoutSyncers = append(stdoutSyncers, fileSyncer)
+		stderrSyncers = append(stderrSyncers, fileSyncer)
 	}
 
+	// 创建核心：Info/Warn -> stdout, Error/Fatal -> stderr
 	coreTee := []zapcore.Core{
-		zapcore.NewCore(encoder, zapcore.NewMultiWriteSyncer(syncers...), atomic),
+		zapcore.NewCore(encoder, zapcore.NewMultiWriteSyncer(stdoutSyncers...), infoWarnLevel),
+		zapcore.NewCore(encoder, zapcore.NewMultiWriteSyncer(stderrSyncers...), errorLevel),
 	}
 
+	// 如果需要多级别输出（生产模式）
 	if conf.dir != "" && conf.multiLevelOutput {
-		infoLevel := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+		infoOnlyLevel := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 			return lvl < zapcore.WarnLevel && lvl >= atomic.Level()
 		})
 
-		warnLevel := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+		warnOnlyLevel := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 			return lvl >= zapcore.WarnLevel && lvl >= atomic.Level()
 		})
 
 		coreTee = append(coreTee, []zapcore.Core{
 			zapcore.NewCore(encoder, zapcore.AddSync(
-				buildFieSyncer(fileConfig{filepath.Join(conf.dir, "info.log"), conf.rotateConfig.Rotate, conf.rotateConfig.MaxSize, conf.rotateConfig.MaxAge, conf.rotateConfig.MaxBackups, conf.rotateConfig.LocalTime, conf.rotateConfig.Compress}),
-			), infoLevel),
+				buildFieSyncer(fileConfig{filepath.Join(conf.dir, "info.log"), conf.rotateConfig.Rotate, conf.rotateConfig.MaxSize, conf.rotateConfig.MaxAge, conf.rotateConfig.MaxBackups, conf.rotateConfig.LocalTime, conf.rotateConfig.Compress})),
+				infoOnlyLevel),
 			zapcore.NewCore(encoder, zapcore.AddSync(
 				buildFieSyncer(fileConfig{filepath.Join(conf.dir, "warn.log"), conf.rotateConfig.Rotate, conf.rotateConfig.MaxSize, conf.rotateConfig.MaxAge, conf.rotateConfig.MaxBackups, conf.rotateConfig.LocalTime, conf.rotateConfig.Compress}),
-			), warnLevel),
+			), warnOnlyLevel),
 		}...)
 	}
 
