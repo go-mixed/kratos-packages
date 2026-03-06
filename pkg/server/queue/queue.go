@@ -106,13 +106,13 @@ func (q *DelayQueue) sendMessageAt(arg any, at time.Time, once bool) error {
 }
 
 // SendRaw 延迟发送一个字符串消息，无法使用q.callback监听，需要实现自定义监听函数
-func (q *DelayQueue) SendRaw(msg string, delay time.Duration) error {
-	return q.client.SendScheduleMsg(msg, time.Now().Add(delay))
+func (q *DelayQueue) SendRaw(msg string, delay time.Duration, opts ...any) error {
+	return q.client.SendScheduleMsg(msg, time.Now().Add(delay), opts...)
 }
 
 // SendRawAt 延迟发送一个字符串消息，at为指定时间。无法使用q.callback监听，需要实现自定义监听函数
-func (q *DelayQueue) SendRawAt(msg string, at time.Time) error {
-	return q.client.SendScheduleMsg(msg, at)
+func (q *DelayQueue) SendRawAt(msg string, at time.Time, opts ...any) error {
+	return q.client.SendScheduleMsg(msg, at, opts...)
 }
 
 // SendStruct 发送一个延迟消息，延迟时间为 delay, arg 需要是已经注册的 struct
