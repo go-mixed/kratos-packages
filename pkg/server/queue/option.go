@@ -15,7 +15,7 @@ type opt func(*DelayQueue)
 // 如果 WithMaxConsumeDuration 时间内没返回，也会重新投递。直到重试次数超过 WithDefaultRetryCount。且重新投递的延时受 WithNackRedeliveryDelay 控制
 func WithCallback(callback delayqueue.CallbackFunc) opt {
 	return func(queue *DelayQueue) {
-		queue.DelayQueue = queue.DelayQueue.WithCallback(callback)
+		queue.client = queue.client.WithCallback(callback)
 	}
 }
 
@@ -23,7 +23,7 @@ func WithCallback(callback delayqueue.CallbackFunc) opt {
 // 自定义日志记录器。
 func WithLogger(logger delayqueue.Logger) opt {
 	return func(queue *DelayQueue) {
-		queue.DelayQueue = queue.DelayQueue.WithLogger(logger)
+		queue.client = queue.client.WithLogger(logger)
 	}
 }
 
@@ -31,7 +31,7 @@ func WithLogger(logger delayqueue.Logger) opt {
 // 自定义从redis中拉取消息的时间间隔。这个意思就是，消息并不是实时拉取的，而是按照这个时间间隔拉取的。（即使delay设置为0，也会按照这个时间间隔拉取消息）
 func WithFetchInterval(d time.Duration) opt {
 	return func(queue *DelayQueue) {
-		queue.DelayQueue = queue.DelayQueue.WithFetchInterval(d)
+		queue.client = queue.client.WithFetchInterval(d)
 	}
 }
 
@@ -39,7 +39,7 @@ func WithFetchInterval(d time.Duration) opt {
 // 使用redis的script load命令预加载脚本到redis
 func WithScriptPreload(flag bool) opt {
 	return func(queue *DelayQueue) {
-		queue.DelayQueue = queue.DelayQueue.WithScriptPreload(flag)
+		queue.client = queue.client.WithScriptPreload(flag)
 	}
 }
 
@@ -49,7 +49,7 @@ func WithScriptPreload(flag bool) opt {
 // 即：如果没有在 WithMaxConsumeDuration 时间内收到确认（即回调函数返回true），消息会被重新投递。
 func WithMaxConsumeDuration(d time.Duration) opt {
 	return func(queue *DelayQueue) {
-		queue.DelayQueue = queue.DelayQueue.WithMaxConsumeDuration(d)
+		queue.client = queue.client.WithMaxConsumeDuration(d)
 	}
 }
 
@@ -57,7 +57,7 @@ func WithMaxConsumeDuration(d time.Duration) opt {
 // 每次从队列中拉取的消息数量。
 func WithFetchLimit(limit uint) opt {
 	return func(queue *DelayQueue) {
-		queue.DelayQueue = queue.DelayQueue.WithFetchLimit(limit)
+		queue.client = queue.client.WithFetchLimit(limit)
 	}
 }
 
@@ -65,7 +65,7 @@ func WithFetchLimit(limit uint) opt {
 // 并发消费的数量。
 func WithConcurrent(c uint) opt {
 	return func(queue *DelayQueue) {
-		queue.DelayQueue = queue.DelayQueue.WithConcurrent(c)
+		queue.client = queue.client.WithConcurrent(c)
 	}
 }
 
@@ -75,7 +75,7 @@ func WithConcurrent(c uint) opt {
 // 在 DelayQueue.SendScheduleMsg 或 DelayQueue.SendDelayMsg 中，可以通过 WithRetryCount 来指定特定消息的重试次数。
 func WithDefaultRetryCount(count uint) opt {
 	return func(queue *DelayQueue) {
-		queue.DelayQueue = queue.DelayQueue.WithDefaultRetryCount(count)
+		queue.client = queue.client.WithDefaultRetryCount(count)
 	}
 }
 
@@ -86,6 +86,6 @@ func WithDefaultRetryCount(count uint) opt {
 // 如果消费超过了 WithNackRedeliveryDelay ，消息会立即重新投递。
 func WithNackRedeliveryDelay(d time.Duration) opt {
 	return func(queue *DelayQueue) {
-		queue.DelayQueue = queue.DelayQueue.WithNackRedeliveryDelay(d)
+		queue.client = queue.client.WithNackRedeliveryDelay(d)
 	}
 }
