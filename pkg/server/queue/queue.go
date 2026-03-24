@@ -162,7 +162,7 @@ func RegisterHandler[Arg any](queue *DelayQueue, callback CallbackFunc[Arg]) *De
 
 	className := utils.GetClassName(arg)
 	if _, ok := queue.handlers[className]; ok {
-		panic(fmt.Sprintf("Callback Argument \"%s\" is registered, use ReplaceHandler to replace it to new handler"))
+		panic(fmt.Sprintf("Callback Argument \"%s\" is registered, use ReplaceHandler to replace it to new handler", className))
 	}
 	queue.handlers[className] = reflect.ValueOf(callback)
 	// 将类型注册到 gob 中，以便编码和解码
