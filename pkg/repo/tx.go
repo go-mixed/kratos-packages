@@ -27,7 +27,7 @@ func (repo *Repository[T]) Transaction(ctx context.Context, steps ...func(ctx co
 		}
 	}()
 
-	ctx = newTxContext(ctx, repo.db)
+	ctx = newTxContext(ctx, tx)
 
 	for _, step := range steps {
 		if err = step(ctx); err != nil {
