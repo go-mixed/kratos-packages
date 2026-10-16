@@ -14,21 +14,27 @@ func BytesToReadCloser(_bytes []byte) io.ReadCloser {
 //
 //	应用场景：
 //	response, _ = http.Get(...)
-//	content = ReadAndRestoreReader(&response.Body) // 比如在代理环境：即获得了内容，又让下文可以继续操作response.Body
+//	content, response.Body = ReadAndRestoreReader(response.Body)
 //
 //	response.Body.Read(...)
 //	response.Body.Close()
-func ReadAndRestoreReader(reader *io.ReadCloser) []byte {
+func ReadAndRestoreReader(reader io.ReadCloser) ([]byte, io.ReadCloser) {
 	if reader == nil {
-		return nil
+		return nil, nil
 	}
 
-	_bytes, _ := io.ReadAll(*reader)
+	buf, _ := io.ReadAll(reader)
 	// close original reader
-	(*reader).Close()
+	reader.Close()
 
 	// Restore the io.ReadCloser to its original state
-	*reader = BytesToReadCloser(_bytes)
+	return buf, BytesToReadCloser(buf)
+}
 
-	return _bytes
+func ReadAllAndClose(reader io.ReadCloser) ([]byte, error) {
+	if reader == nil {
+		return nil, nil
+	}
+	defer reader.Close()
+	return io.ReadAll(reader)
 }

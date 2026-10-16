@@ -4,14 +4,15 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
-	protojson "github.com/go-kratos/kratos/v2/encoding/json"
-	"google.golang.org/protobuf/proto"
 	"io"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	protojson "github.com/go-kratos/kratos/v2/encoding/json"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -19,12 +20,12 @@ const (
 )
 
 type Sse struct {
-	Id      string
-	Event   string
-	Data    string
-	Retry   time.Duration
-	Comment string
-	Extra   map[string]string
+	Id      string            `json:"id"`
+	Event   string            `json:"event"`
+	Data    string            `json:"data"`
+	Retry   time.Duration     `json:"retry"`
+	Comment string            `json:"comment"`
+	Extra   map[string]string `json:"extra"`
 }
 
 type sseBuilder struct {
